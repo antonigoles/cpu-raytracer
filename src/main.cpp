@@ -65,6 +65,54 @@ template <typename... Args> void log_info(Args&&... args) { log(LogLevel::INFO, 
 template <typename... Args> void log_warn(Args&&... args) { log(LogLevel::WARNING, std::forward<Args>(args)...); }
 template <typename... Args> void log_err(Args&&... args)  { log(LogLevel::ERR, std::forward<Args>(args)...); }
 
+class FloatColor {
+public:
+    float red;
+    float green;
+    float blue;
+    float alpha;
+
+    FloatColor operator+(const FloatColor& other) const {
+        return FloatColor{
+            .red   = red + other.red,
+            .green = green + other.green,
+            .blue  = blue + other.blue,
+            .alpha = alpha + other.alpha
+        };
+    }
+
+    FloatColor operator-(const FloatColor& other) const {
+        return FloatColor{
+            .red   = red - other.red,
+            .green = green - other.green,
+            .blue  = blue - other.blue,
+            .alpha = alpha - other.alpha
+        };
+    }
+
+    FloatColor operator*(const FloatColor& other) const {
+        return FloatColor{
+            .red   = red * other.red,
+            .green = green * other.green,
+            .blue  = blue * other.blue,
+            .alpha = alpha * other.alpha
+        };
+    }
+
+    FloatColor operator*(float scalar) const {
+        return FloatColor{
+            .red   = red * scalar,
+            .green = red * scalar,
+            .blue  = red * scalar,
+            .alpha = red * scalar
+        };
+    }
+
+    friend FloatColor operator*(float scalar, const FloatColor& color) {
+        return color * scalar;
+    }
+};
+
 class Color {
 public:
     uint8_t red;
@@ -75,25 +123,25 @@ public:
     static Color from_floats(float red, float green, float blue, float alpha)
     {
         return Color{
-            .red = (uint8_t)(red * 255.0f),
-            .green = (uint8_t)(green * 255.0f),
-            .blue = (uint8_t)(blue * 255.0f),
-            .alpha = (uint8_t)(alpha * 255.0f),
+            .red = (uint8_t)(red >= 1.0f ? 255 : red * 255.0f),
+            .green = (uint8_t)(green >= 1.0f ? 255 : green * 255.0f),
+            .blue = (uint8_t)(blue >= 1.0f ? 255 : blue * 255.0f),
+            .alpha = (uint8_t)(alpha >= 1.0f ? 255 : alpha * 255.0f),
         };
     }
 
-    glm::vec4 as_floats() const {
-        return glm::vec4( (float)red / 255.0f, (float)green / 255.0f, (float)blue / 255.0f, (float)alpha / 255.0f );
+    FloatColor as_floats() const {
+        return FloatColor{ (float)red / 255.0f, (float)green / 255.0f, (float)blue / 255.0f, (float)alpha / 255.0f };
     }
 
     Color pow(float n)
     {
         auto v = this->as_floats();
         return Color::from_floats(
-            glm::pow(v.x, n),
-            glm::pow(v.y, n),
-            glm::pow(v.z, n),
-            glm::pow(v.w, n)
+            glm::pow(v.red, n),
+            glm::pow(v.green, n),
+            glm::pow(v.blue, n),
+            glm::pow(v.alpha, n)
         );
     }
 
@@ -117,7 +165,7 @@ public:
 
     Color operator*(const Color& other) const {
         auto mult = this->as_floats() * other.as_floats();
-        return Color::from_floats(mult.x, mult.y, mult.z, mult.w);
+        return Color::from_floats(mult.red, mult.green, mult.blue, mult.alpha);
     }
 
     Color operator*(float scalar) const {
@@ -335,11 +383,11 @@ public:
 class Material 
 {
 public:
-    Color diffuse = Color(0,0,0,0);
-    Color specular = Color(0,0,0,0);
-    Color ambient = Color(0,0,0,0);
-    Color emission = Color(0,0,0,0);
-    // Color emission_strength = Color(0,0,0,0);
+    FloatColor diffuse = Color(0,0,0,0).as_floats();
+    FloatColor specular = Color(0,0,0,0).as_floats();
+    FloatColor ambient = Color(0,0,0,0).as_floats();
+    FloatColor emission = Color(0,0,0,0).as_floats();
+    // FloatColor emission_strength = Color(0,0,0,0).as_floats();
     float shininess = 1;
     float opacity = 0; 
     int illumination = 0;
@@ -364,19 +412,19 @@ public:
         material.illumination = 2;
 
         if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_COLOR_DIFFUSE, color_dump)) {
-            material.diffuse = Color::from_floats((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
+            material.diffuse = FloatColor((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
         }
 
         if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_COLOR_SPECULAR, color_dump)) {
-            material.specular = Color::from_floats((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
+            material.specular = FloatColor((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
         }
 
         if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_COLOR_AMBIENT, color_dump)) {
-            material.ambient = Color::from_floats((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
+            material.ambient = FloatColor((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
         }
 
         if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_COLOR_EMISSIVE, color_dump)) {
-            material.emission = Color::from_floats((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
+            material.emission = FloatColor((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
         }
 
         if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_SHININESS, float_dump)) {
@@ -398,10 +446,10 @@ class PointLightSource
 {
 public:
     glm::vec3 position;
-    Color color;
+    FloatColor color;
     float strength;
 
-    Color get_effective_color(float r, float cos_theta) {
+    FloatColor get_effective_color(float r, float cos_theta) {
         return color * ((strength * cos_theta) / (4.0f * 3.14159f * r * r));
     }
 };
@@ -411,7 +459,7 @@ class TriangleLightSource
 public:
     glm::vec3 points[3];
     glm::vec3 normal;
-    Color emissive_color = Color(255, 255, 255, 255);
+    FloatColor emissive_color = Color(255, 255, 255, 255).as_floats();
     float strength = 10.0f;
     float pdf;
 
@@ -434,7 +482,7 @@ public:
     }
 
     // Solid Angle PDF
-    Color get_effective_color(float r, float cos_theta_i, float cos_theta_l) {
+    FloatColor get_effective_color(float r, float cos_theta_i, float cos_theta_l) {
         return emissive_color * ((strength * cos_theta_i * cos_theta_l) / (pdf * r * r));
     }
 };
@@ -444,17 +492,17 @@ class SphereLightSource
 public:
     glm::vec3 center;
     float radius;
-    Color emissive_color = Color(255, 255, 255, 255);
+    FloatColor emissive_color = Color(255, 255, 255, 255).as_floats();
     float strength = 10.0f;
 
-    SphereLightSource(glm::vec3 center, float radius, Color emissive_color, float strength) 
+    SphereLightSource(glm::vec3 center, float radius, FloatColor emissive_color, float strength) 
     : center(center), radius(radius), emissive_color(emissive_color), strength(strength) {};
 
     glm::vec3 get_closest_point(glm::vec3 from) {
         return center + glm::normalize(center - from) * radius;
     }
 
-    Color get_effective_color(float r, float cos_theta) {
+    FloatColor get_effective_color(float r, float cos_theta) {
         return emissive_color * ((strength * cos_theta) / (r * r));
     }
 };
@@ -730,9 +778,9 @@ class BasicRayTracer
 public:
     BasicRayTracer() {};
 
-    std::vector<Color> gather_light_color(const Scene& scene, const glm::vec3 point, const glm::vec3 normal, const glm::vec3 geometric_normal, float shinines = 1.0f) {
-        Color diffuse = Color(0,0,0,0);
-        Color specular = Color(0,0,0,0);
+    std::vector<FloatColor> gather_light_color(const Scene& scene, const glm::vec3 point, const glm::vec3 normal, const glm::vec3 geometric_normal, float shinines = 1.0f) {
+        FloatColor diffuse = FloatColor(0,0,0,0);
+        FloatColor specular = FloatColor(0,0,0,0);
 
         for (auto point_light_source : scene.point_light_sources) {
             auto norm_direction_to_light = glm::normalize(point_light_source.position - point);
@@ -744,8 +792,7 @@ public:
                 .base = safe_shadow_origin,
                 .direction = norm_direction_to_light
             };
-
-            
+  
             auto distance_to_light = glm::distance(point, point_light_source.position);
             auto embree_light_ray = light_ray.get_embree_ray(0.0001f, distance_to_light - 0.001f);
             
@@ -845,8 +892,8 @@ public:
         return {diffuse, specular};
     }
 
-    Color cast_ray(const Ray& ray, const Scene& scene, uint32_t depth_left = 8) {
-        auto color = Color{0, 0, 0, 255};
+    FloatColor cast_ray(const Ray& ray, const Scene& scene, uint32_t depth_left = 8) {
+        auto color = FloatColor{0, 0, 0, 255};
         if (depth_left == 0) {
             return color;
         }
@@ -857,7 +904,7 @@ public:
         rtcInitIntersectArguments(&args);
         rtcIntersect1(scene.embree_scene, &embree_ray, &args);
 
-        auto ambient_light = Color{20, 30, 50, 255};
+        auto ambient_light = Color(20, 30, 50, 255).as_floats();
 
         if (embree_ray.hit.geomID != RTC_INVALID_GEOMETRY_ID)
         {
@@ -883,7 +930,7 @@ public:
             glm::vec3 geometric_normal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
 
             glm::vec3 interpolated_normal = (w * n0) + (u * n1) + (v * n2);
-            // interpolated_normal = glm::normalize(interpolated_normal);
+            // interpolated_normal = glm::normalize( interpolated_normal);
 
             if (glm::dot(geometric_normal, interpolated_normal) < 0) {
                 geometric_normal = -geometric_normal;
@@ -904,14 +951,14 @@ public:
 
                 glm::vec2 texture_uv = (w * txt_uv_0) + (u * txt_uv_1) + (v * txt_uv_2);
 
-                diffuse_reflectance = mesh.texture.sample(texture_uv.x, texture_uv.y, embree_ray.ray.tfar);
+                diffuse_reflectance = mesh.texture.sample(texture_uv.x, texture_uv.y, embree_ray.ray.tfar).as_floats();
             }
 
             if (mesh.material.illumination == 0) {
                 return diffuse_reflectance;
             }
 
-            std::vector<Color> light_color = gather_light_color(scene, interpolated_point, interpolated_normal, geometric_normal, mesh.material.shininess);
+            std::vector<FloatColor> light_color = gather_light_color(scene, interpolated_point, interpolated_normal, geometric_normal, mesh.material.shininess);
 
 
             // if (mesh.material.illumination == 1) {
@@ -924,7 +971,7 @@ public:
             //     return mesh.material.ambient * ambient_light + diffuse_reflectance * light_color[0] + mesh.material.specular;
             // }
 
-            Color recast_result = cast_ray(next_ray, scene, depth_left - 1);
+            FloatColor recast_result = cast_ray(next_ray, scene, depth_left - 1);
 
             ambient_light = diffuse_reflectance * 0.1f;
 
@@ -975,7 +1022,7 @@ public:
                 for (uint32_t x = 0; x < width; x++) 
                 {
                     // TODO: Maybe make weighted sampling
-                    Color sum_color = Color(0, 0, 0, 0);
+                    FloatColor sum_color = Color(0, 0, 0, 0).as_floats();
                     for (int sy = 0; sy < sample_per_pixel; sy++) {
                         for (int sx = 0; sx < sample_per_pixel; sx++) {
                             glm::vec2 sample_point = glm::vec2((float)sy, (float)sx);
@@ -991,11 +1038,14 @@ public:
                                 .direction = glm::normalize(p_x_prim * cam_right + p_y_prim * cam_up + cam_forward)
                             };
 
-                            sum_color = sum_color + this->cast_ray(ray, scene) * (1.0f / (float)(sample_per_pixel * sample_per_pixel));
+                            sum_color = sum_color + this->cast_ray(ray, scene);
                         }
                     }
                     
-                    buffer.write(x, y, Fragment(sum_color));
+                    buffer.write(x, y, Fragment(
+                        Color::from_floats(sum_color.red, sum_color.green, sum_color.blue, sum_color.alpha) 
+                        * (1.0f / (sample_per_pixel * sample_per_pixel))
+                    ));
                 }
             }
         };
@@ -1133,19 +1183,19 @@ inline Scene setup_sponza()
 
     scene.point_light_sources.push_back(PointLightSource{
         .position = glm::vec3(-5.0f, 10.0f, 0.0f),
-        .color = Color(34, 56, 255, 255),
+        .color = Color(34, 56, 255, 255).as_floats(),
         .strength = 500.0f
     });
 
     scene.point_light_sources.push_back(PointLightSource{
         .position = glm::vec3(0.0f, 10.0f, 0.0f),
-        .color = Color(21, 188, 42, 255),
+        .color = Color(21, 188, 42, 255).as_floats(),
         .strength = 500.0f
     });
 
     scene.point_light_sources.push_back(PointLightSource{
         .position = glm::vec3(5.0f, 10.0f, 0.0f),
-        .color = Color(156, 23, 24, 255),
+        .color = Color(156, 23, 24, 255).as_floats(),
         .strength = 500.0f
     });
 
@@ -1186,14 +1236,14 @@ inline Scene setup_breakfast_room()
     scene.sphere_light_sources.push_back(SphereLightSource(
         glm::vec3(-2.0f, 4.0f, -2.0f),
         0.1f,
-        Color(233, 166, 166, 255),
+        Color(233, 166, 166, 255).as_floats(),
         5.0f
     ));
 
     scene.sphere_light_sources.push_back(SphereLightSource(
         glm::vec3(1.0f, 4.0f, -2.0f),
         0.1f,
-        Color(233, 166, 166, 255),
+        Color(233, 166, 166, 255).as_floats(),
         5.0f
     ));
 
@@ -1238,14 +1288,14 @@ inline Scene setup_cornell_box()
 
     // scene.point_light_sources.push_back(PointLightSource{
     //     .position = glm::vec3(0.0f, 1.5f, 0.0f),
-    //     .color = Color(255, 255, 255, 255),
+    //     .color = Color(255, 255, 255, 255).as_floats(),
     //     .strength = 10.0f
     // });
 
     scene.sphere_light_sources.push_back(SphereLightSource(
         glm::vec3(0.0f, 1.5f, 0.0f),
         0.1f,
-        Color(255, 255, 255, 255),
+        Color(255, 255, 255, 255).as_floats(),
         1.0f
     ));
 
@@ -1253,19 +1303,19 @@ inline Scene setup_cornell_box()
 }
 
 int main() {
-    auto scene_0 = setup_cornell_box();
-    scene_0.build_embree();
-    live_preview(scene_0);
+    // auto scene_0 = setup_cornell_box();
+    // scene_0.build_embree();
+    // live_preview(scene_0);
     // render_picture(scene_0, "./scene_0.jpg", 1, 0.0005f);
 
     // auto scene_1 = setup_sponza();
     // scene_1.build_embree();
     // render_picture(scene_1, "./scene_1.jpg");
 
-    // auto scene_2 = setup_breakfast_room();
-    // scene_2.build_embree();
+    auto scene_2 = setup_breakfast_room();
+    scene_2.build_embree();
     // live_preview(scene_2);
-    // render_picture(scene_2, "./scene_2.jpg", 3, 0.001f);
+    render_picture(scene_2, "./scene_2_on_floats.jpg");
 
     // live_preview(scene);
     return 0;
