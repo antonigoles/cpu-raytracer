@@ -1,7 +1,7 @@
 #include <GLFW/glfw3.h>
 #include <vector>
 #include <iostream>
-#include <LivePreview.hpp>
+#include <Infrastructure/LivePreview/LivePreview.hpp>
 #include <unordered_set>
 
 LivePreview::LivePreview(uint32_t width, uint32_t height) : width(width), height(height) {};
