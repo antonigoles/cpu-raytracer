@@ -17,5 +17,5 @@ public:
      */
     std::string make_path_from_source_and_texture(const std::string& obj_file_path, aiString texture_path);
 
-    Scene load_scene_from_file(const std::string& file);
+    std::unique_ptr<Scene> load_scene_from_file(const std::string& file);
 };

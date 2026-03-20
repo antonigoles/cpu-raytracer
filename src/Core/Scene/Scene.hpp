@@ -18,10 +18,5 @@ public:
     std::vector<TriangleLightSource> triangle_light_sources;
     std::vector<SphereLightSource> sphere_light_sources;
 
-    RTCDevice embree_device = nullptr;
-    RTCScene embree_scene = nullptr;
-
     ~Scene();
-
-    void build_embree();
 };

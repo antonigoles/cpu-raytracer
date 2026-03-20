@@ -51,8 +51,8 @@ std::string SceneLoader::make_path_from_source_and_texture(const std::string& ob
     return final_path.string();
 }
 
-Scene SceneLoader::load_scene_from_file(const std::string& file) {
-    Scene new_scene;
+std::unique_ptr<Scene> SceneLoader::load_scene_from_file(const std::string& file) {
+    auto new_scene = std::make_unique<Scene>();
     Assimp::Importer importer;
     
     log_info("Loading scene: ", file);
@@ -101,7 +101,7 @@ Scene SceneLoader::load_scene_from_file(const std::string& file) {
 
             internal_mesh.dump_from_assimp_material_to_internal_material(assimp_material);
 
-            new_scene.meshes.push_back(internal_mesh);
+            new_scene->meshes.push_back(internal_mesh);
         }
     }
 

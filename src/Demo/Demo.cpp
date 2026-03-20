@@ -7,18 +7,20 @@
 #include <Infrastructure/Logger/Logger.hpp>
 #include <Core/Scene/SceneLoader/SceneLoader.hpp>
 
-void Demo::animation_test(Scene& scene) {
+void Demo::animation_test(std::shared_ptr<Scene> scene) {
+    auto rt_engine = std::make_shared<EmbreeRayTracingEngine>();
+    rt_engine->build_from_scene(scene);
     auto image_writer = ImageWriter();
-    auto ray_tracer = BasicRayTracer();
+    auto ray_tracer = BasicRayTracer(rt_engine);
 
     std::vector<Buffer2D<Fragment>> video_buffer;
 
     const uint32_t frame_count = 240;
 
     for (uint32_t i = 1; i <= frame_count; i++) {
-        scene.camera->position.x += 0.05f;
-        scene.camera->position.y += 0.15f;
-        scene.camera->rotation = Math::EulerToQuatRadians(glm::radians(-(float)i / 3.0f), glm::radians(90.0f), 0.0f);
+        scene->camera->position.x += 0.05f;
+        scene->camera->position.y += 0.15f;
+        scene->camera->rotation = Math::EulerToQuatRadians(glm::radians(-(float)i / 3.0f), glm::radians(90.0f), 0.0f);
 
         Buffer2D<Fragment> ray_traced_buffer = ray_tracer.ray_trace_scene(scene, 512, 512);
         video_buffer.push_back(std::move(ray_traced_buffer));
@@ -28,17 +30,21 @@ void Demo::animation_test(Scene& scene) {
     image_writer.write_vide_from_buffer_vector(video_buffer, "./output.mp4", 60);
 }
 
-void render_picture(const Scene& scene, std::string as = "./output.jpg", int sample_per_pixel = 1, float jitter_scale = (0.25F)) {
+void Demo::render_picture(std::shared_ptr<Scene> scene, std::string as, int sample_per_pixel, float jitter_scale) {
+    auto rt_engine = std::make_shared<EmbreeRayTracingEngine>();
+    rt_engine->build_from_scene(scene);
     auto image_writer = ImageWriter();
-    auto ray_tracer = BasicRayTracer();
+    auto ray_tracer = BasicRayTracer(rt_engine);
 
     auto ray_traced_buffer = ray_tracer.ray_trace_scene(scene, 4120, 3120, sample_per_pixel, jitter_scale);
     image_writer.write_jpg_from_frame_buffer(&ray_traced_buffer, as);
 }
 
-void Demo::live_preview(Scene& scene)
+void Demo::live_preview(std::shared_ptr<Scene> scene)
 {
-    auto ray_tracer = BasicRayTracer();
+    auto rt_engine = std::make_shared<EmbreeRayTracingEngine>();
+    rt_engine->build_from_scene(scene);
+    auto ray_tracer = BasicRayTracer(rt_engine);
     auto live_preview = LivePreview(1280, 720);
 
     live_preview.init_window();
@@ -59,10 +65,10 @@ void Demo::live_preview(Scene& scene)
 
         float multiplier = live_preview.is_held(GLFW_KEY_LEFT_SHIFT) ? 2.0f : 1.0f;
 
-        if (live_preview.is_held(GLFW_KEY_W)) move += scene.camera->forward();
-        if (live_preview.is_held(GLFW_KEY_S)) move -= scene.camera->forward();
-        if (live_preview.is_held(GLFW_KEY_A)) move -= scene.camera->right();
-        if (live_preview.is_held(GLFW_KEY_D)) move += scene.camera->right();
+        if (live_preview.is_held(GLFW_KEY_W)) move += scene->camera->forward();
+        if (live_preview.is_held(GLFW_KEY_S)) move -= scene->camera->forward();
+        if (live_preview.is_held(GLFW_KEY_A)) move -= scene->camera->right();
+        if (live_preview.is_held(GLFW_KEY_D)) move += scene->camera->right();
 
         if (live_preview.is_held(GLFW_KEY_UP)) camera_angle_upwards += multiplier * delta_time;
         if (live_preview.is_held(GLFW_KEY_DOWN)) camera_angle_upwards -= multiplier * delta_time;
@@ -70,23 +76,23 @@ void Demo::live_preview(Scene& scene)
         if (live_preview.is_held(GLFW_KEY_RIGHT)) camera_angle_sideways -= multiplier * delta_time;
 
         if (live_preview.is_held(GLFW_KEY_P)) {
-            scene.sphere_light_sources[0].radius += delta_time;
-            scene.sphere_light_sources[1].radius += delta_time;
+            scene->sphere_light_sources[0].radius += delta_time;
+            scene->sphere_light_sources[1].radius += delta_time;
         }
 
         if (live_preview.is_held(GLFW_KEY_O)) {
-            scene.sphere_light_sources[0].radius -= delta_time;
-            scene.sphere_light_sources[1].radius -= delta_time;
+            scene->sphere_light_sources[0].radius -= delta_time;
+            scene->sphere_light_sources[1].radius -= delta_time;
         }
 
-        scene.camera->rotation = Math::EulerToQuatRadians(camera_angle_upwards, camera_angle_sideways, 0.0f);
-        scene.camera->position += glm::length(move) == 0 ? move : glm::normalize(move) * delta_time * multiplier;
+        scene->camera->rotation = Math::EulerToQuatRadians(camera_angle_upwards, camera_angle_sideways, 0.0f);
+        scene->camera->position += glm::length(move) == 0 ? move : glm::normalize(move) * delta_time * multiplier;
 
         log_info(
             "pos: ",
-            scene.camera->position.x, " ", 
-            scene.camera->position.y, " ", 
-            scene.camera->position.z, 
+            scene->camera->position.x, " ", 
+            scene->camera->position.y, " ", 
+            scene->camera->position.z, 
             "rot: ",
             camera_angle_sideways,
             camera_angle_upwards
@@ -95,7 +101,7 @@ void Demo::live_preview(Scene& scene)
     live_preview.terminate();
 }
 
-Scene Demo::setup_sponza()
+std::unique_ptr<Scene> Demo::setup_sponza()
 {
     auto main_camera = std::make_shared<Camera>();
     main_camera->position = glm::vec3(10.0f, 8.8f, 0.0f);
@@ -104,25 +110,25 @@ Scene Demo::setup_sponza()
     auto scene_loader = SceneLoader();
     auto scene = scene_loader.load_scene_from_file("./assets/Sponza/sponza.obj");
 
-    scene.point_light_sources.push_back(PointLightSource{
+    scene->point_light_sources.push_back(PointLightSource{
         .position = glm::vec3(-5.0f, 10.0f, 0.0f),
         .color = Color(34, 56, 255, 255).as_floats(),
         .strength = 500.0f
     });
 
-    scene.point_light_sources.push_back(PointLightSource{
+    scene->point_light_sources.push_back(PointLightSource{
         .position = glm::vec3(0.0f, 10.0f, 0.0f),
         .color = Color(21, 188, 42, 255).as_floats(),
         .strength = 500.0f
     });
 
-    scene.point_light_sources.push_back(PointLightSource{
+    scene->point_light_sources.push_back(PointLightSource{
         .position = glm::vec3(5.0f, 10.0f, 0.0f),
         .color = Color(156, 23, 24, 255).as_floats(),
         .strength = 500.0f
     });
 
-    scene.camera = main_camera;
+    scene->camera = main_camera;
 
     // auto triangle_light_0 = TriangleLightSource(
     //     glm::vec3(1.0f, 15.58f, -1.0f),
@@ -141,13 +147,13 @@ Scene Demo::setup_sponza()
     // triangle_light_1.strength = 100.0f;
     // triangle_light_1.emissive_color = Color(188, 188, 255, 255);
 
-    // scene.triangle_light_sources.push_back(triangle_light_0);
-    // scene.triangle_light_sources.push_back(triangle_light_1);
+    // scene->triangle_light_sources.push_back(triangle_light_0);
+    // scene->triangle_light_sources.push_back(triangle_light_1);
 
     return scene;
 }
 
-Scene Demo::setup_breakfast_room()
+std::unique_ptr<Scene> Demo::setup_breakfast_room()
 {
     auto main_camera = std::make_shared<Camera>();
     main_camera->position = glm::vec3(-3.0f, 2.0f, 3.0f);
@@ -156,26 +162,26 @@ Scene Demo::setup_breakfast_room()
     auto scene_loader = SceneLoader();
     auto scene = scene_loader.load_scene_from_file("./assets/breakfast_room/breakfast_room.obj");
 
-    scene.sphere_light_sources.push_back(SphereLightSource(
+    scene->sphere_light_sources.push_back(SphereLightSource(
         glm::vec3(-2.0f, 4.0f, -2.0f),
         0.1f,
         Color(233, 166, 166, 255).as_floats(),
         5.0f
     ));
 
-    scene.sphere_light_sources.push_back(SphereLightSource(
+    scene->sphere_light_sources.push_back(SphereLightSource(
         glm::vec3(1.0f, 4.0f, -2.0f),
         0.1f,
         Color(233, 166, 166, 255).as_floats(),
         5.0f
     ));
 
-    scene.camera = main_camera;
+    scene->camera = main_camera;
 
     return scene;
 }
 
-Scene Demo::setup_cornell_box()
+std::unique_ptr<Scene> Demo::setup_cornell_box()
 {
     auto main_camera = std::make_shared<Camera>();
     main_camera->position = glm::vec3(0.0f, 0.8f, 2.0f);
@@ -183,7 +189,7 @@ Scene Demo::setup_cornell_box()
     main_camera->fov = glm::radians(60.0f);
     auto scene_loader = SceneLoader();
     auto scene = scene_loader.load_scene_from_file("./assets/CornellBox/CornellBox-Sphere.obj");
-    scene.camera = main_camera;
+    scene->camera = main_camera;
 
     // Ceiling
     // v  1.0000 1.5900 -1.0400
@@ -206,16 +212,16 @@ Scene Demo::setup_cornell_box()
     // triangle_light_0.strength = 1.0f;
     // triangle_light_1.strength = 1.0f;
 
-    // scene.triangle_light_sources.push_back(triangle_light_0);
-    // scene.triangle_light_sources.push_back(triangle_light_1);
+    // scene->triangle_light_sources.push_back(triangle_light_0);
+    // scene->triangle_light_sources.push_back(triangle_light_1);
 
-    // scene.point_light_sources.push_back(PointLightSource{
+    // scene->point_light_sources.push_back(PointLightSource{
     //     .position = glm::vec3(0.0f, 1.5f, 0.0f),
     //     .color = Color(255, 255, 255, 255).as_floats(),
     //     .strength = 10.0f
     // });
 
-    scene.sphere_light_sources.push_back(SphereLightSource(
+    scene->sphere_light_sources.push_back(SphereLightSource(
         glm::vec3(0.0f, 1.5f, 0.0f),
         0.1f,
         Color(255, 255, 255, 255).as_floats(),
