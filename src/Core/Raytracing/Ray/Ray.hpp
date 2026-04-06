@@ -9,4 +9,8 @@ public:
     glm::vec3 direction;
     float near = 0.000001f;
     float far = std::numeric_limits<float>::infinity();
+
+    void move_base_by_direction(float strength) {
+        this->base += direction * strength;
+    };
 };

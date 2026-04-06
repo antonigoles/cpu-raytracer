@@ -61,10 +61,17 @@ Color Color::operator*(float scalar) const {
 
 Color Color::rasterize_from_float_color(const FloatColor& float_color)
 {
+    float r = glm::clamp(float_color.red, 0.0f, 1.0f);
+    float g = glm::clamp(float_color.green, 0.0f, 1.0f);
+    float b = glm::clamp(float_color.blue, 0.0f, 1.0f);
+    float a = glm::clamp(float_color.alpha, 0.0f, 1.0f); 
+
+    const float gamma_inv = 1.0f / 2.2f;
+
     return Color::from_floats(
-        glm::pow(float_color.red, 1.0f / 2.2f),
-        glm::pow(float_color.green, 1.0f / 2.2f),
-        glm::pow(float_color.blue, 1.0f / 2.2f), 
-        glm::pow(float_color.alpha, 1.0f / 2.2f)
+        glm::pow(r, gamma_inv),
+        glm::pow(g, gamma_inv),
+        glm::pow(b, gamma_inv), 
+        a 
     );
 }

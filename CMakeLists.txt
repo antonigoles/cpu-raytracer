@@ -17,17 +17,11 @@ find_package(glm REQUIRED)
 find_package(assimp REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS program_options)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
-add_executable(${PROJECT_NAME} ${SOURCES}
-        src/Core/Raytracing/AbstractRayTracingEngine/AbstractRayTracingEngine.cpp
-        src/Core/Raytracing/AbstractRayTracingEngine/AbstractRayTracingEngine.hpp
-        src/Core/Raytracing/RayHit/RayHit.cpp
-        src/Core/Raytracing/RayHit/RayHit.hpp
-        src/Core/Raytracing/EmbreeRayTracingEngine/EmbreeRayTracingEngine.cpp
-        src/Core/Raytracing/EmbreeRayTracingEngine/EmbreeRayTracingEngine.hpp
-)
+add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -37,6 +31,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     assimp::assimp
     OpenGL::GL
     glfw
+    Boost::program_options
 )
 
 add_custom_command(
@@ -50,7 +45,9 @@ add_custom_command(
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
     message(STATUS "Włączono flagi dla trybu Debug (AddressSanitizer włączony)")
     target_compile_options(${PROJECT_NAME} PRIVATE 
-        -g                          
+        -g
+        -O3             
+        -march=native                      
         -fsanitize=address         
         -fno-strict-aliasing
         -fno-omit-frame-pointer
@@ -63,6 +60,7 @@ elseif(CMAKE_BUILD_TYPE MATCHES "Release")
     target_compile_options(${PROJECT_NAME} PRIVATE 
         -O3             
         -march=native
+        -ffast-math
     )
     target_compile_definitions(${PROJECT_NAME} PRIVATE NDEBUG) 
 endif()

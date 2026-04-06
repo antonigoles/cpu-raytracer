@@ -11,17 +11,17 @@ std::vector<FloatColor> BasicRayTracer::gather_light_color(std::shared_ptr<Scene
         auto norm_direction_to_light = glm::normalize(point_light_source.position - point);
         glm::vec3 safe_geometric_normal = geometric_normal;
 
-        glm::vec3 safe_shadow_origin = point + (safe_geometric_normal * 0.001f);
+        glm::vec3 safe_shadow_origin = point + (safe_geometric_normal * this->ray_normal_bias);
 
         auto distance_to_light = glm::distance(point, point_light_source.position);
         std::shared_ptr<Ray> light_ray = std::make_shared<Ray>(
             safe_shadow_origin,
             norm_direction_to_light,
-            0.00001,
+            0.001f,
             distance_to_light - 0.001f
         );
-        
-        auto ray_hit = rt_engine->cast_ray(light_ray);
+                
+        auto ray_hit = rt_engine->occluded(light_ray);
 
         if (ray_hit.has_hit) continue;
 
@@ -39,17 +39,18 @@ std::vector<FloatColor> BasicRayTracer::gather_light_color(std::shared_ptr<Scene
         auto norm_direction_to_light = glm::normalize(light_point - point);
         glm::vec3 safe_geometric_normal = geometric_normal;
 
-        glm::vec3 safe_shadow_origin = point + (safe_geometric_normal * 0.001f);
+        glm::vec3 safe_shadow_origin = point + (safe_geometric_normal * this->ray_normal_bias);
 
         auto distance_to_light = glm::distance(point, light_point);
         std::shared_ptr<Ray> light_ray = std::make_shared<Ray>(
             safe_shadow_origin,
             norm_direction_to_light,
-            0.00001,
+            0.001f,
             distance_to_light - 0.001f
         );
         
-        auto ray_hit = rt_engine->cast_ray(light_ray);
+        auto ray_hit = rt_engine->occluded(light_ray);
+        
 
         if (ray_hit.has_hit) continue;
 
@@ -77,17 +78,17 @@ std::vector<FloatColor> BasicRayTracer::gather_light_color(std::shared_ptr<Scene
         auto norm_direction_to_light = glm::normalize(light_point - point);
         glm::vec3 safe_geometric_normal = geometric_normal;
 
-        glm::vec3 safe_shadow_origin = point + (safe_geometric_normal * 0.001f);
+        glm::vec3 safe_shadow_origin = point + (safe_geometric_normal * this->ray_normal_bias);
 
         auto distance_to_light = glm::distance(point, light_point);
         std::shared_ptr<Ray> light_ray = std::make_shared<Ray>(
             safe_shadow_origin,
             norm_direction_to_light,
-            0.00001,
+            0.001f,
             distance_to_light - 0.001f
         );
         
-        auto ray_hit = rt_engine->cast_ray(light_ray);
+        auto ray_hit = rt_engine->occluded(light_ray);
 
         if (ray_hit.has_hit) continue;
 
@@ -110,12 +111,12 @@ std::vector<FloatColor> BasicRayTracer::gather_light_color(std::shared_ptr<Scene
 }
 
 FloatColor BasicRayTracer::cast_ray(std::shared_ptr<Ray> ray, std::shared_ptr<Scene> scene, uint32_t depth_left) {
-    auto color = FloatColor{0, 0, 0, 255};
+    auto color = FloatColor{0, 0, 0, 1.0f};
     if (depth_left == 0) {
         return color;
     }
 
-    RayHit ray_hit = rt_engine->cast_ray(ray);
+    RayHit ray_hit = rt_engine->intersect(ray);
 
     auto ambient_light = Color(20, 30, 50, 255).as_floats();
 
@@ -153,6 +154,8 @@ FloatColor BasicRayTracer::cast_ray(std::shared_ptr<Ray> ray, std::shared_ptr<Sc
             interpolated_point,
             glm::reflect(ray->direction, interpolated_normal) 
         );
+
+        next_ray->base += geometric_normal * this->ray_normal_bias;
         
         auto diffuse_reflectance = mesh.material.diffuse;
 
@@ -186,17 +189,26 @@ FloatColor BasicRayTracer::cast_ray(std::shared_ptr<Ray> ray, std::shared_ptr<Sc
     return color;
 };
 
-Buffer2D<Fragment> BasicRayTracer::ray_trace_scene(std::shared_ptr<Scene> scene, uint32_t width, uint32_t height, int sample_per_pixel, float jitter_scale)
-{   
+Buffer2D<Fragment> BasicRayTracer::ray_trace_scene(
+    std::shared_ptr<Scene> scene, 
+    uint32_t width, 
+    uint32_t height, 
+    uint32_t recursion_depth,
+    float ray_normal_bias,
+    int sample_per_pixel, 
+    float jitter_scale
+) {   
     Buffer2D<Fragment> buffer(width, height);
+
+    this->ray_normal_bias = ray_normal_bias;
 
     float hfov_tan = glm::tan(scene->camera->fov / 2.0f);
     float aspect_ratio = ((float)width) / ((float)height);
     
     glm::vec3 cam_pos = scene->camera->position;
-    glm::vec3 cam_right = scene->camera->right();
-    glm::vec3 cam_up = scene->camera->up();
-    glm::vec3 cam_forward = scene->camera->forward();
+    glm::vec3 cam_right = scene->camera->get_right();
+    glm::vec3 cam_up = scene->camera->get_up();
+    glm::vec3 cam_forward = scene->camera->get_forward();
 
     std::atomic<uint32_t> current_y{0};
 
@@ -229,7 +241,7 @@ Buffer2D<Fragment> BasicRayTracer::ray_trace_scene(std::shared_ptr<Scene> scene,
                             glm::normalize(p_x_prim * cam_right + p_y_prim * cam_up + cam_forward)
                         );
 
-                        sum_color = sum_color + this->cast_ray(ray, scene);
+                        sum_color = sum_color + this->cast_ray(ray, scene, recursion_depth);
                     }
                 }
 

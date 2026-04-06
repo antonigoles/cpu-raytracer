@@ -37,6 +37,7 @@ void handle_embree_error(void* userPtr, enum RTCError error, const char* str) {
 };
 
 void EmbreeRayTracingEngine::build_from_scene(std::shared_ptr<Scene> scene) {
+    rays_shot.store(0);
     this->scene = scene;
 
     log_info("Building embree");
@@ -78,6 +79,9 @@ void EmbreeRayTracingEngine::build_from_scene(std::shared_ptr<Scene> scene) {
 
         std::memcpy(embree_indices, mesh.triangles.data(), mesh.triangles.size() * sizeof(Triangle));
 
+        rtcSetSceneBuildQuality(embree_scene, RTC_BUILD_QUALITY_HIGH);
+        rtcSetGeometryBuildQuality(geom, RTC_BUILD_QUALITY_HIGH);
+
         rtcCommitGeometry(geom);
         unsigned int geomID = rtcAttachGeometry(embree_scene, geom);
         rtcReleaseGeometry(geom);
@@ -87,7 +91,8 @@ void EmbreeRayTracingEngine::build_from_scene(std::shared_ptr<Scene> scene) {
     log_info("Embree built successfully");
 }
 
-RayHit EmbreeRayTracingEngine::cast_ray(std::shared_ptr<Ray> ray) {
+RayHit EmbreeRayTracingEngine::intersect(std::shared_ptr<Ray> ray) {
+    rays_shot++;
     RayHit hit;
 
     RTCRayHit embree_ray = EmbreeRayTracingEngine::get_embree_ray_of_internal_ray(ray);
@@ -109,4 +114,29 @@ RayHit EmbreeRayTracingEngine::cast_ray(std::shared_ptr<Ray> ray) {
     hit.ray = ray;
 
     return hit;
+}
+
+RayHit EmbreeRayTracingEngine::occluded(std::shared_ptr<Ray> ray) {
+    rays_shot++;
+    RayHit hit;
+
+    RTCRayHit embree_ray = EmbreeRayTracingEngine::get_embree_ray_of_internal_ray(ray);
+    RTCOccludedArguments args;
+    rtcInitOccludedArguments(&args);
+    rtcOccluded1(this->embree_scene, &embree_ray.ray, &args);
+
+    if (embree_ray.ray.tfar <= 0.0f) {
+        hit.has_hit = true;
+    } else {
+        hit.has_hit = false;
+    }
+
+    hit.ray = ray;
+    return hit;
+}
+
+RayTracerPerformanceMetric EmbreeRayTracingEngine::get_performance_metric() {
+    return RayTracerPerformanceMetric{
+        .rays_shot = this->rays_shot.load()
+    };
 }

@@ -31,12 +31,13 @@ void Demo::animation_test(std::shared_ptr<Scene> scene) {
 }
 
 void Demo::render_picture(std::shared_ptr<Scene> scene, std::string as, int sample_per_pixel, float jitter_scale) {
-    auto rt_engine = std::make_shared<EmbreeRayTracingEngine>();
+    auto rt_engine = std::make_shared<HavranKDTreeRayTracingEngine>();
+    // auto rt_engine = std::make_shared<EmbreeRayTracingEngine>();
     rt_engine->build_from_scene(scene);
     auto image_writer = ImageWriter();
     auto ray_tracer = BasicRayTracer(rt_engine);
 
-    auto ray_traced_buffer = ray_tracer.ray_trace_scene(scene, 4120, 3120, sample_per_pixel, jitter_scale);
+    auto ray_traced_buffer = ray_tracer.ray_trace_scene(scene, 1280, 720, sample_per_pixel, jitter_scale);
     image_writer.write_jpg_from_frame_buffer(&ray_traced_buffer, as);
 }
 
@@ -65,10 +66,10 @@ void Demo::live_preview(std::shared_ptr<Scene> scene)
 
         float multiplier = live_preview.is_held(GLFW_KEY_LEFT_SHIFT) ? 2.0f : 1.0f;
 
-        if (live_preview.is_held(GLFW_KEY_W)) move += scene->camera->forward();
-        if (live_preview.is_held(GLFW_KEY_S)) move -= scene->camera->forward();
-        if (live_preview.is_held(GLFW_KEY_A)) move -= scene->camera->right();
-        if (live_preview.is_held(GLFW_KEY_D)) move += scene->camera->right();
+        if (live_preview.is_held(GLFW_KEY_W)) move += scene->camera->get_forward();
+        if (live_preview.is_held(GLFW_KEY_S)) move -= scene->camera->get_forward();
+        if (live_preview.is_held(GLFW_KEY_A)) move -= scene->camera->get_right();
+        if (live_preview.is_held(GLFW_KEY_D)) move += scene->camera->get_right();
 
         if (live_preview.is_held(GLFW_KEY_UP)) camera_angle_upwards += multiplier * delta_time;
         if (live_preview.is_held(GLFW_KEY_DOWN)) camera_angle_upwards -= multiplier * delta_time;
@@ -130,26 +131,6 @@ std::unique_ptr<Scene> Demo::setup_sponza()
 
     scene->camera = main_camera;
 
-    // auto triangle_light_0 = TriangleLightSource(
-    //     glm::vec3(1.0f, 15.58f, -1.0f),
-    //     glm::vec3(1.0f, 15.58f, 1.0f),
-    //     glm::vec3(-1.0f, 15.58f, 1.0f)
-    // );
-
-    // auto triangle_light_1 = TriangleLightSource(
-    //     glm::vec3(1.0f, 15.58f, -1.0f),
-    //     glm::vec3(-1.0f, 15.58f, 1.0f),
-    //     glm::vec3(-1.0f, 15.58f, -1.0f)
-    // );
-
-    // triangle_light_0.strength = 100.0f;
-    // triangle_light_0.emissive_color = Color(188, 188, 255, 255);
-    // triangle_light_1.strength = 100.0f;
-    // triangle_light_1.emissive_color = Color(188, 188, 255, 255);
-
-    // scene->triangle_light_sources.push_back(triangle_light_0);
-    // scene->triangle_light_sources.push_back(triangle_light_1);
-
     return scene;
 }
 
@@ -191,35 +172,6 @@ std::unique_ptr<Scene> Demo::setup_cornell_box()
     auto scene = scene_loader.load_scene_from_file("./assets/CornellBox/CornellBox-Sphere.obj");
     scene->camera = main_camera;
 
-    // Ceiling
-    // v  1.0000 1.5900 -1.0400
-    // v  1.0000 1.5900 0.9900
-    // v  -1.0200 1.5900 0.9900
-    // v  -1.0200 1.5900 -1.0400
-
-    // auto triangle_light_0 = TriangleLightSource(
-    //     glm::vec3(1.0f, 1.58f, -1.0f),
-    //     glm::vec3(1.0f, 1.58f, 1.0f),
-    //     glm::vec3(-1.0f, 1.58f, 1.0f)
-    // );
-
-    // auto triangle_light_1 = TriangleLightSource(
-    //     glm::vec3(1.0f, 1.58f, -1.0f),
-    //     glm::vec3(-1.0f, 1.58f, 1.0f),
-    //     glm::vec3(-1.0f, 1.58f, -1.0f)
-    // );
-
-    // triangle_light_0.strength = 1.0f;
-    // triangle_light_1.strength = 1.0f;
-
-    // scene->triangle_light_sources.push_back(triangle_light_0);
-    // scene->triangle_light_sources.push_back(triangle_light_1);
-
-    // scene->point_light_sources.push_back(PointLightSource{
-    //     .position = glm::vec3(0.0f, 1.5f, 0.0f),
-    //     .color = Color(255, 255, 255, 255).as_floats(),
-    //     .strength = 10.0f
-    // });
 
     scene->sphere_light_sources.push_back(SphereLightSource(
         glm::vec3(0.0f, 1.5f, 0.0f),

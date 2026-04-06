@@ -64,6 +64,11 @@ std::unique_ptr<Scene> SceneLoader::load_scene_from_file(const std::string& file
         aiProcess_GenSmoothNormals // aiProcess_GenNormals for hard edges
     );
 
+    if (!ai_scene) {
+        log_err("Could not load scene: ", file);
+        exit(-1);
+    }
+
     if (ai_scene->HasMeshes()) {
         for (uint32_t i = 0; i < ai_scene->mNumMeshes; i++) {
             aiMesh* mesh = ai_scene->mMeshes[i];

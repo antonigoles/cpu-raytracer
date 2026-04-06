@@ -10,11 +10,13 @@ public:
     float fov;
 
     glm::vec3 position;
+    glm::vec3 up;
+
     glm::quat rotation;
 
-    glm::vec3 forward();
+    glm::vec3 get_forward();
 
-    glm::vec3 right();
+    glm::vec3 get_right();
 
-    glm::vec3 up();
+    glm::vec3 get_up();
 };

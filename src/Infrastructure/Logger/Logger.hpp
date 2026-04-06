@@ -1,7 +1,12 @@
 #pragma once
 #include <thread>
 #include <Infrastructure/Logger/Logger.hpp>
+#include <fstream>
+#include <string>
+#include <stdexcept>
+#include <utility>
 #include <iostream>
+#include <iomanip>
 
 #define ENABLE_VERBOSE true
 
@@ -41,3 +46,16 @@ template <typename... Args> void log_verbose(Args&&... args) { log(LogLevel::VER
 template <typename... Args> void log_info(Args&&... args) { log(LogLevel::INFO, std::forward<Args>(args)...); }
 template <typename... Args> void log_warn(Args&&... args) { log(LogLevel::WARNING, std::forward<Args>(args)...); }
 template <typename... Args> void log_err(Args&&... args)  { log(LogLevel::ERR, std::forward<Args>(args)...); }
+
+
+template <typename... Args> 
+void log_file(const std::string& file_path, Args&&... args)  { 
+    std::ofstream file(file_path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Nie udało się otworzyć pliku do zapisu: " + file_path);
+    }
+
+    file << std::fixed << std::setprecision(3);
+
+    (file << ... << std::forward<Args>(args));
+}
