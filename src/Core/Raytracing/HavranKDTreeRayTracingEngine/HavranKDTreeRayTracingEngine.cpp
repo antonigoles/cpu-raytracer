@@ -35,13 +35,13 @@ void HavranKDTreeRayTracingEngine::build_from_scene(std::shared_ptr<Scene> scene
     log_info("[HAVRAN_TREE_ENGINE]: Havran Tree has been built");
 };
 
-RayHit HavranKDTreeRayTracingEngine::intersect(std::shared_ptr<Ray> ray) {
+RayHit HavranKDTreeRayTracingEngine::intersect(Ray& ray) {
     rays_shot++;
-    HavranTree::Ray tree_ray = HavranTree::Ray(ray->base + ray->direction * ray->near, ray->direction);
+    HavranTree::Ray tree_ray = HavranTree::Ray(ray.base + ray.direction * ray.near, ray.direction);
     HavranTree::Hit tree_hit = this->tree->trace(tree_ray);
     return RayHit{
         .ray = ray,
-        .has_hit = (ray->far >= tree_hit.t) && (tree_hit.triangle_idx != static_cast<uint32_t>(-1)),
+        .has_hit = (ray.far >= tree_hit.t) && (tree_hit.triangle_idx != static_cast<uint32_t>(-1)),
         .distance = tree_hit.t,
         .triangle_index = tree_trig_idx_to_mesh_triangle_index[tree_hit.triangle_idx].second,
         .mesh_index = tree_trig_idx_to_mesh_triangle_index[tree_hit.triangle_idx].first,
@@ -50,7 +50,7 @@ RayHit HavranKDTreeRayTracingEngine::intersect(std::shared_ptr<Ray> ray) {
     };
 };
 
-RayHit HavranKDTreeRayTracingEngine::occluded(std::shared_ptr<Ray> ray) {
+RayHit HavranKDTreeRayTracingEngine::occluded(Ray& ray) {
     return this->intersect(ray);
 };
 

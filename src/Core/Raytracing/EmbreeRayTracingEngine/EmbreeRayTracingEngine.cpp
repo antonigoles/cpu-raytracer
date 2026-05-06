@@ -9,19 +9,19 @@ EmbreeRayTracingEngine::~EmbreeRayTracingEngine() {
     if (embree_device) rtcReleaseDevice(embree_device);
 }
 
-RTCRayHit EmbreeRayTracingEngine::get_embree_ray_of_internal_ray(std::shared_ptr<Ray> ray) {
+RTCRayHit EmbreeRayTracingEngine::get_embree_ray_of_internal_ray(Ray& ray) {
     RTCRayHit query{};
 
-    query.ray.org_x = ray->base.x;
-    query.ray.org_y = ray->base.y;
-    query.ray.org_z = ray->base.z;
+    query.ray.org_x = ray.base.x;
+    query.ray.org_y = ray.base.y;
+    query.ray.org_z = ray.base.z;
 
-    query.ray.dir_x = ray->direction.x;
-    query.ray.dir_y = ray->direction.y;
-    query.ray.dir_z = ray->direction.z;
+    query.ray.dir_x = ray.direction.x;
+    query.ray.dir_y = ray.direction.y;
+    query.ray.dir_z = ray.direction.z;
 
-    query.ray.tnear = ray->near;
-    query.ray.tfar = ray->far;
+    query.ray.tnear = ray.near;
+    query.ray.tfar = ray.far;
 
     query.ray.mask = -1;
     query.ray.flags = 0;
@@ -91,13 +91,18 @@ void EmbreeRayTracingEngine::build_from_scene(std::shared_ptr<Scene> scene) {
     log_info("Embree built successfully");
 }
 
-RayHit EmbreeRayTracingEngine::intersect(std::shared_ptr<Ray> ray) {
-    rays_shot++;
+RayHit EmbreeRayTracingEngine::intersect(Ray& ray) {
+    // rays_shot++;
     RayHit hit;
 
     RTCRayHit embree_ray = EmbreeRayTracingEngine::get_embree_ray_of_internal_ray(ray);
     RTCIntersectArguments args;
     rtcInitIntersectArguments(&args);
+    if (ray.is_coherent) {
+        args.flags = RTC_RAY_QUERY_FLAG_COHERENT;
+    } else {
+        args.flags = RTC_RAY_QUERY_FLAG_INCOHERENT;
+    }
     rtcIntersect1(this->embree_scene, &embree_ray, &args);
 
     if (embree_ray.hit.geomID != RTC_INVALID_GEOMETRY_ID) {
@@ -116,17 +121,19 @@ RayHit EmbreeRayTracingEngine::intersect(std::shared_ptr<Ray> ray) {
     return hit;
 }
 
-RayHit EmbreeRayTracingEngine::occluded(std::shared_ptr<Ray> ray) {
-    rays_shot++;
+RayHit EmbreeRayTracingEngine::occluded(Ray& ray) {
+    // rays_shot++;
     RayHit hit;
 
     RTCRayHit embree_ray = EmbreeRayTracingEngine::get_embree_ray_of_internal_ray(ray);
     RTCOccludedArguments args;
     rtcInitOccludedArguments(&args);
+    args.flags = RTC_RAY_QUERY_FLAG_INCOHERENT;
     rtcOccluded1(this->embree_scene, &embree_ray.ray, &args);
 
-    if (embree_ray.ray.tfar <= 0.0f) {
+    if (embree_ray.ray.tfar < 0.0f) {
         hit.has_hit = true;
+        hit.ray.far = embree_ray.ray.tfar;
     } else {
         hit.has_hit = false;
     }

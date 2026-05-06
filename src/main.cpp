@@ -14,6 +14,7 @@ struct CameraConfig {
     glm::vec3 direction{0.0f, 0.0f, -1.0f};
     glm::vec3 up{0.0f, 1.0f, 0.0f};
     float fovy = 45.0f;
+    float focal_length = 1.0f;
 };
 
 struct SceneConfig {
@@ -27,6 +28,12 @@ struct SceneConfig {
     std::string engine = "Embree";
     std::string metrics_path = "metrics.log";
     float ray_normal_bias = 0.0001f;
+    bool live_preview = false;
+    int sample_per_pixel_sqrt = 4;
+    float jitter_scale = 0.25f;
+    int nl_parameter = 1;
+    bool write_exr = false;
+    int np = 0;
 };
 
 std::string v3_to_str(const glm::vec3 v) {
@@ -42,6 +49,7 @@ void run_scene_form_config(const SceneConfig& config)
         "cam.direction: ", v3_to_str(config.cam.direction), "\n",
         "cam.up: ", v3_to_str(config.cam.up), "\n",
         "cam.fovy: ", config.cam.fovy, "\n",
+        "cam.focal_length: ", config.cam.focal_length, "\n",
         "point_lights.count(): ", config.point_lights.size(), "\n",
         "recursion_level: ", config.recursion_level, "\n",
         "resolution.x: ", config.resolution.x, "\n",
@@ -50,7 +58,9 @@ void run_scene_form_config(const SceneConfig& config)
         "input_path: ", config.input_path, "\n",
         "engine: ", config.engine, "\n",
         "metrics_path: ", config.metrics_path, "\n",
-        "ray_normal_bias: ", config.ray_normal_bias
+        "ray_normal_bias: ", config.ray_normal_bias, "\n",
+        "nl_parameter: ", config.nl_parameter, "\n",
+        "np: ", config.np, "\n"
     );
 
     // setup the scene itself 
@@ -86,10 +96,29 @@ void run_scene_form_config(const SceneConfig& config)
     auto ray_tracer = BasicRayTracer(rt_engine);
 
     auto rendering_start = std::chrono::high_resolution_clock::now();
-    auto ray_traced_buffer = ray_tracer.ray_trace_scene(scene, config.resolution.x, config.resolution.y, config.recursion_level);
+    uint32_t sample_count = config.sample_per_pixel_sqrt;
+    if (config.np != 0) {
+        sample_count = (uint32_t)glm::floor(glm::sqrt(config.np));
+    }
+    auto ray_traced_buffer = ray_tracer.ray_trace_scene_hdr(
+        scene, 
+        config.resolution.x, 
+        config.resolution.y, 
+        config.recursion_level,
+        0.0001f,
+        sample_count,
+        config.jitter_scale,
+        config.cam.focal_length,
+        config.nl_parameter
+    );
     auto rendering_end = std::chrono::high_resolution_clock::now();
     auto rendering_duration = (double)std::chrono::duration_cast<std::chrono::milliseconds>(rendering_end - rendering_start).count() / 1000.0f;
-    image_writer.write_jpg_from_frame_buffer(&ray_traced_buffer, config.output_file);
+    
+    if (config.write_exr) {
+        image_writer.write_exr_from_floatcolor_buffer(&ray_traced_buffer, config.output_file);
+    } else {
+        log_err("NOT IMPLEMENTED ERROR: JPEG WRITING DOESNT WORK FOR NOW!");
+    }
 
     float rays_per_second = (float)rt_engine->get_performance_metric().rays_shot / rendering_duration;
     
@@ -121,6 +150,13 @@ int boot_from_params(int argc, char **argv)
             ("vd", po::value<std::vector<float>>()->multitoken(), "Kierunek patrzenia (x y z)")
             ("up", po::value<std::vector<float>>()->multitoken(), "Kierunek do góry (x y z)")
             
+            ("np", po::value<int>(&config.np), "sample_per_pixel_sqrt do kwadratu")
+            ("exr", po::value<bool>(&config.write_exr), "zapisz plik jako exr")
+            ("nl", po::value<int>(&config.nl_parameter), "parametr nl")
+            ("jitter_scale", po::value<float>(&config.jitter_scale), "jitter_scale")
+            ("sample_per_pixel_sqrt", po::value<int>(&config.sample_per_pixel_sqrt), "sample_per_pixel_sqrt")
+            ("focal_length", po::value<float>(&config.cam.focal_length), "Długość obiektywu")
+            ("live_preview", po::value<bool>(&config.live_preview), "Uruchom w trybie real time")
             ("fovy", po::value<float>(&config.cam.fovy), "Kąt widzenia pionowy (stopnie)")
             ("r", po::value<int>(&config.recursion_level)->default_value(2), "Poziom rekurencji (0, 1, 2...)")
             ("o", po::value<std::string>(&config.output_file), "Nazwa pliku wynikowego")
@@ -218,15 +254,15 @@ int main(int argc, char **argv) {
     if (argc > 1) return boot_from_params(argc, argv);
 
     auto scene_0 = Demo::setup_cornell_box();
-    // Demo::live_preview(std::move(scene_0));
+    Demo::live_preview(std::move(scene_0));
     // Demo::render_picture(std::move(scene_0), "./scene_0.jpg");
 
     // auto scene_1 = Demo::setup_sponza();
     // Demo::render_picture(scene_1, "./scene_1.jpg");
 
-    auto scene_2 = Demo::setup_breakfast_room();
+    // auto scene_2 = Demo::setup_breakfast_room();
     // Demo::live_preview(scene_2);
-    Demo::render_picture(std::move(scene_2), "./scene_2_after_rework.jpg");
+    // Demo::render_picture(std::move(scene_2), "./scene_2_after_rework.jpg");
 
     return 0;
 }

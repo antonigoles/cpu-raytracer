@@ -22,9 +22,9 @@ public:
 
     void build_from_scene(std::shared_ptr<Scene> scene) override;
 
-    RayHit intersect(std::shared_ptr<Ray> ray) override;
+    RayHit intersect(Ray& ray) override;
 
-    RayHit occluded(std::shared_ptr<Ray> ray) override;
+    RayHit occluded(Ray& ray) override;
 
     RayTracerPerformanceMetric get_performance_metric() override;
 };

@@ -6,12 +6,12 @@ void AbstractRayTracingEngine::build_from_scene(std::shared_ptr<Scene> scene) {
     log_err("Attempted to call virtual method");
 }
 
-RayHit AbstractRayTracingEngine::intersect(std::shared_ptr<Ray> ray) {
+RayHit AbstractRayTracingEngine::intersect(Ray& ray) {
     log_err("Attempted to call virtual method");
     return RayHit{};
 }
 
-RayHit AbstractRayTracingEngine::occluded(std::shared_ptr<Ray> ray) {
+RayHit AbstractRayTracingEngine::occluded(Ray& ray) {
     log_err("Attempted to call virtual method");
     return RayHit{};
 }

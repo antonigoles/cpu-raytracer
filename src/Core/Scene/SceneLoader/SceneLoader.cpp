@@ -65,7 +65,7 @@ std::unique_ptr<Scene> SceneLoader::load_scene_from_file(const std::string& file
     );
 
     if (!ai_scene) {
-        log_err("Could not load scene: ", file);
+        log_err("Could not load scene: ", file, "\nReason: ", importer.GetErrorString());        
         exit(-1);
     }
 
@@ -105,10 +105,13 @@ std::unique_ptr<Scene> SceneLoader::load_scene_from_file(const std::string& file
             }
 
             internal_mesh.dump_from_assimp_material_to_internal_material(assimp_material);
-
+            if (internal_mesh.material.is_emissive) {
+                new_scene->emissive_triangles.insert(internal_mesh);
+            }
             new_scene->meshes.push_back(internal_mesh);
         }
     }
 
+    // new_scene->emissive_triangles.debug_log_content();
     return new_scene;
 };

@@ -10,7 +10,7 @@ private:
 
     std::atomic<uint32_t> rays_shot;
 
-    static RTCRayHit get_embree_ray_of_internal_ray(std::shared_ptr<Ray> ray);
+    static RTCRayHit get_embree_ray_of_internal_ray(Ray& ray);
 
 public:
     EmbreeRayTracingEngine();
@@ -18,9 +18,9 @@ public:
 
     void build_from_scene(std::shared_ptr<Scene> scene) override;
 
-    RayHit intersect(std::shared_ptr<Ray> ray) override;
+    RayHit intersect(Ray& ray) override;
 
-    RayHit occluded(std::shared_ptr<Ray> ray) override;
+    RayHit occluded(Ray& ray) override;
 
     RayTracerPerformanceMetric get_performance_metric() override;
 };

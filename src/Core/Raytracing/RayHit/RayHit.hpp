@@ -5,7 +5,7 @@
 class RayHit
 {
 public:
-    std::shared_ptr<Ray> ray;
+    Ray ray;
     bool has_hit;
     float distance;
     uint32_t triangle_index;

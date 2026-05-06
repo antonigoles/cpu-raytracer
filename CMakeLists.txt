@@ -18,12 +18,16 @@ find_package(assimp REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
+find_package(Imath REQUIRED)
+find_package(OpenEXR REQUIRED)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+include_directories(${Imath_INCLUDE_DIRS} ${OpenEXR_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     embree 
@@ -32,6 +36,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenGL::GL
     glfw
     Boost::program_options
+    Imath::Imath 
+    OpenEXR::OpenEXR
 )
 
 add_custom_command(

@@ -16,9 +16,9 @@ public:
 
     virtual void build_from_scene(std::shared_ptr<Scene> scene);
 
-    virtual RayHit occluded(std::shared_ptr<Ray> ray);
+    virtual RayHit occluded(Ray& ray);
 
-    virtual RayHit intersect(std::shared_ptr<Ray> ray);
+    virtual RayHit intersect(Ray& ray);
 
     virtual RayTracerPerformanceMetric get_performance_metric();
 };

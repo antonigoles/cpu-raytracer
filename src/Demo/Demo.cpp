@@ -43,8 +43,11 @@ void Demo::render_picture(std::shared_ptr<Scene> scene, std::string as, int samp
 
 void Demo::live_preview(std::shared_ptr<Scene> scene)
 {
+    auto main_camera = std::make_shared<Camera>();
     auto rt_engine = std::make_shared<EmbreeRayTracingEngine>();
     rt_engine->build_from_scene(scene);
+    main_camera->up = glm::vec3(0.0f, 1.0f, 0.0f);
+    scene->camera = main_camera;
     auto ray_tracer = BasicRayTracer(rt_engine);
     auto live_preview = LivePreview(1280, 720);
 
@@ -54,9 +57,16 @@ void Demo::live_preview(std::shared_ptr<Scene> scene)
     float camera_angle_sideways = glm::radians(90.0f);
     float camera_angle_upwards = glm::radians(-20.0f);
 
+    main_camera->fov = glm::radians(45.0f);
+
     while (!live_preview.window_should_close()) {
         auto timestamp = glfwGetTime();
-        auto ray_traced_buffer = ray_tracer.ray_trace_scene(scene, 1280, 720);
+        auto ray_traced_buffer = ray_tracer.ray_trace_scene(
+            scene, 
+            1280, 
+            720,
+            1
+        );
         live_preview.load_frame(ray_traced_buffer.bytes());
         delta_time = glfwGetTime() - timestamp;
         // log_info(1.0f / delta_time, " FPS");

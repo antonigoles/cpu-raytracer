@@ -18,4 +18,6 @@ public:
     friend FloatColor operator*(float scalar, const FloatColor& color) {
         return color * scalar;
     }
+
+    float strength() const;
 };

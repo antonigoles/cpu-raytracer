@@ -1,6 +1,10 @@
 #include <Infrastructure/ImageWriter/ImageWriter.hpp>
 #include <stb/stb.hpp>
 #include <Infrastructure/Logger/Logger.hpp>
+#include <OpenEXR/ImfRgbaFile.h>
+#include <OpenEXR/ImfArray.h>
+#include <OpenEXR/ImfRgba.h>
+#include <cmath>
 
 ImageWriter::ImageWriter() {};
 
@@ -59,4 +63,47 @@ void ImageWriter::write_vide_from_buffer_vector(std::vector<Buffer2D<Fragment>>&
     pclose(ffmpeg);
     
     log_info("Video saved as ", filepath);
+}
+
+bool check_illegal_hdr_float(float value)
+{
+    return std::isnan(value) || std::isinf(value) || value < 0.0f;
+}
+
+bool check_illegal_hdr_color(FloatColor* value)
+{
+    return check_illegal_hdr_float(value->red) ||
+        check_illegal_hdr_float(value->green) ||
+        check_illegal_hdr_float(value->blue) ||
+        check_illegal_hdr_float(value->alpha);
+}
+
+void ImageWriter::write_exr_from_floatcolor_buffer(Buffer2D<FloatColor> *buffer, const std::string& path)
+{
+    int width = buffer->get_width();
+    int height = buffer->get_height();
+    Imf::Array2D<Imf::Rgba> pixels(height, width);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            FloatColor* col = buffer->at(x, y);
+            pixels[y][x] = Imf::Rgba(
+                std::min(65000.0f, col->red), 
+                std::min(65000.0f, col->green), 
+                std::min(65000.0f, col->blue), 
+                1.0f
+            );
+            if (check_illegal_hdr_color(col)) {
+                log_info("Illegal value spotted during EXR compilation");
+            }
+        }
+    }
+
+    try {
+        Imf::RgbaOutputFile file(path.c_str(), width, height, Imf::WRITE_RGBA);
+        file.setFrameBuffer(&pixels[0][0], 1, width);
+        file.writePixels(height);
+        log_info("EXR Image saved to: ", path);
+    } catch (const std::exception& e) {
+        log_err("Error while saving to OpenEXR: ", e.what());
+    }
 }
