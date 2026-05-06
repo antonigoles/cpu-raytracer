@@ -11,7 +11,7 @@ public:
     float shininess = 1;
     float opacity = 0; 
     int illumination = 0;
-    bool is_emissive;
+    bool is_emissive = false;
 
     aiShadingMode assimp_shading_mode;
 };
