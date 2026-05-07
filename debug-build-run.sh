@@ -1,4 +1,4 @@
-np=100
+np=16
 nl=4
 
 mkdir -p build && cd build

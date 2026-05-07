@@ -43,11 +43,10 @@ void Mesh::dump_from_assimp_material_to_internal_material(aiMaterial* assimp_mat
 
     if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_SHININESS, float_dump)) {
         material.shininess = float_dump; 
-        if (float_dump != 1.0) material.illumination = 4;
     }
 
     if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_OPACITY, float_dump)) {
-        material.shininess = float_dump; 
+        material.opacity = float_dump; 
     }
 
     // note: this is basically useless

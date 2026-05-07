@@ -37,13 +37,22 @@ glm::vec3 sample_point_on_triangle(const glm::vec3& v0, const glm::vec3& v1, con
     return p;
 }
 
+FloatColor get_sky_color(glm::vec3 dir_to_sky) 
+{
+    float t = 0.5f * (dir_to_sky.y + 1.0f); 
+    FloatColor horizon = {1.0f, 1.0f, 1.0f, 1.0f};
+    FloatColor zenith  = {0.5f, 0.7f, 1.0f, 1.0f};
+    FloatColor sky_color = horizon * (1.0f - t) + zenith * t;
+    float sky_intensity = 1.0f; 
+    return sky_color * sky_intensity;
+}
+
 FloatColor BasicRayTracer::cast_ray(SobolSampler& sobol_sampler, Ray& ray, std::shared_ptr<Scene> scene, uint32_t depth_left, uint32_t nl_parameter) {
     uint32_t start_depth = depth_left;
     auto radiance = FloatColor{0.0f, 0.0f, 0.0f, 1.0f};
     auto throughput = FloatColor{1.0f, 1.0f, 1.0f, 1.0f};
 
     float previous_pdf_brdf = 1.0f; 
-    bool last_bounce_specular = true;
 
     while (depth_left --> 0) {
         RayHit ray_hit = rt_engine->intersect(ray);
@@ -69,24 +78,22 @@ FloatColor BasicRayTracer::cast_ray(SobolSampler& sobol_sampler, Ray& ray, std::
             }
 
             if (mesh.material.is_emissive) {
-                if (last_bounce_specular) {
-                    radiance = radiance + throughput * mesh.material.emission;
-                } else {
-                    float cos_light = std::max(0.0f, glm::dot(interpolated_normal, -ray.direction));
-                    float distance_sq = ray_hit.distance * ray_hit.distance;
-                    
-                    if (cos_light > 0.0f) {
-                        float mis_weight_brdf = 1.0f;
+                float cos_light = std::max(0.0f, glm::dot(interpolated_normal, -ray.direction));
+                float distance_sq = ray_hit.distance * ray_hit.distance;
+                
+                if (cos_light > 0.0f) {
+                    float mis_weight_brdf = 1.0f;
 
-                        if (nl_parameter > 0) {
-                            float pdf_light_area = 1.0f / scene->emissive_triangles.get_total_emissive_area();
-                            float pdf_light_w = (distance_sq * pdf_light_area) / cos_light;
-                            
-                            mis_weight_brdf = previous_pdf_brdf / (previous_pdf_brdf + (float)nl_parameter * pdf_light_w);
-                        }
+                    if (nl_parameter > 0 && start_depth - depth_left > 1) {
+                        float pdf_light_area = 1.0f / scene->emissive_triangles.get_total_emissive_area();
+                        float pdf_light_w = (distance_sq * pdf_light_area) / cos_light;
+                        float p_sky = (scene->emissive_triangles.get_total_emissive_area() > 0.0f) ? 0.5f : 1.0f;
+                        float adjusted_pdf_nee = ((float)nl_parameter * pdf_light_w) * (1.0f - p_sky);
                         
-                        radiance = radiance + throughput * mesh.material.emission * mis_weight_brdf;
+                        mis_weight_brdf = previous_pdf_brdf / (previous_pdf_brdf + (float)nl_parameter * adjusted_pdf_nee);
                     }
+                    
+                    radiance = radiance + throughput * (mesh.material.emission) * mis_weight_brdf;
                 }
                 break;
             }
@@ -111,7 +118,11 @@ FloatColor BasicRayTracer::cast_ray(SobolSampler& sobol_sampler, Ray& ray, std::
                 tex_color.green = std::pow(tex_color.green, 2.2f);
                 tex_color.blue  = std::pow(tex_color.blue,  2.2f);
 
-                actual_diffuse = actual_diffuse * tex_color;
+                if (actual_diffuse.strength() > 0) {
+                    actual_diffuse = actual_diffuse * tex_color;
+                } else {
+                    actual_diffuse = tex_color;
+                }
             }
 
             float diffuse_strength = actual_diffuse.strength();
@@ -121,11 +132,40 @@ FloatColor BasicRayTracer::cast_ray(SobolSampler& sobol_sampler, Ray& ray, std::
 
             FloatColor accumulated_direct_light = {0.0f, 0.0f, 0.0f, 0.0f};
 
-            if (diffuse_margin > 0.0f) {
-                float pdf_light_area = 1.0f / scene->emissive_triangles.get_total_emissive_area();
-                FloatColor brdf = actual_diffuse * (1.0f / glm::pi<float>());
+            glm::vec3 ideal_reflection = glm::reflect(ray.direction, interpolated_normal);
 
-                for (uint32_t i = 0; i < nl_parameter; i++ ) {
+
+            // MIS BLOCK
+            float pdf_light_area = 1.0f / scene->emissive_triangles.get_total_emissive_area();
+
+            float p_sky = 0.5f;
+            float total_emissive_area = scene->emissive_triangles.get_total_emissive_area();
+            if (total_emissive_area <= 0.0f) {
+                p_sky = 1.0f;
+            }
+
+            for (uint32_t i = 0; i < nl_parameter; i++ ) {
+                glm::vec3 dir_to_light;
+                float distance = 0.0f;
+                float pdf_light_w = 0.0f;
+                float cos_wall = 0.0f;
+                FloatColor sampled_emission = FloatColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+                float light_choice = sobol_sampler.get_1d();
+
+                if (light_choice < p_sky) {
+                    dir_to_light = sample_cosine_hemisphere(interpolated_normal, sobol_sampler.get_2d());
+                    cos_wall = glm::dot(interpolated_normal, dir_to_light);
+                    
+                    if (cos_wall <= 0.0f) continue;
+                    
+                    distance = 1e8f; 
+                    
+                    pdf_light_w = (cos_wall / glm::pi<float>()) * p_sky;
+                    
+                    sampled_emission = get_sky_color(dir_to_light); 
+
+                } else {
                     const WeightedEmissiveTriangleListElement& emissive_search_result = scene->get_weighted_random_emissivie_triangle(sobol_sampler.get_1d());
                     auto sampled_emissive_point = sample_point_on_triangle(
                         emissive_search_result.trig[0], emissive_search_result.trig[1], emissive_search_result.trig[2],
@@ -133,67 +173,119 @@ FloatColor BasicRayTracer::cast_ray(SobolSampler& sobol_sampler, Ray& ray, std::
                     );
 
                     glm::vec3 offset = sampled_emissive_point - ray.base;
-                    float distance = glm::length(offset);
-                    glm::vec3 dir_to_light = offset / distance;
+                    distance = glm::length(offset);
+                    dir_to_light = offset / distance;
 
-                    float cos_wall = glm::dot(interpolated_normal, dir_to_light);
+                    cos_wall = glm::dot(interpolated_normal, dir_to_light);
+                    float cos_light = glm::dot(emissive_search_result.normal, -dir_to_light);
 
-                    glm::vec3 light_normal = emissive_search_result.normal;
-                    // if (glm::dot(dir_to_light, light_normal) > 0.0f) {
-                    //     light_normal = -light_normal;
-                    // }
+                    if (cos_wall <= 0.0f || cos_light < 0.0001f) continue;
 
-                    float cos_light = glm::dot(light_normal, -dir_to_light);
-
-                    if (cos_wall <= 0.0f || cos_light < 0.0001f) {
-                        continue; 
-                    }
-
-                    auto shadow_ray = Ray{
-                        .base = ray.base, 
-                        .direction = dir_to_light,
-                        .near = 0.0001f,
-                        .far = distance - 0.00001f
-                    };
+                    float distance_sq = distance * distance;
                     
-                    RayHit shadow_ray_hit = rt_engine->occluded(shadow_ray);
+                    pdf_light_w = ((distance_sq * pdf_light_area) / cos_light) * (1.0f - p_sky);
+                    
+                    sampled_emission = emissive_search_result.owner_mesh.material.emission;
+                }
 
-                    if (!shadow_ray_hit.has_hit) {
-                        float distance_sq = distance * distance;
+                auto shadow_ray = Ray{
+                    .base = ray.base, 
+                    .direction = dir_to_light,
+                    .near = 0.0001f,
+                    .far = distance - 0.0001f
+                };
+                
+                RayHit shadow_ray_hit = rt_engine->occluded(shadow_ray);
+
+                if (!shadow_ray_hit.has_hit) {
+                    FloatColor diffuse_brdf = actual_diffuse * (1.0f / glm::pi<float>());
+                    float diffuse_pdf = cos_wall / glm::pi<float>();
+
+                    glm::vec3 ideal_reflection = glm::reflect(ray.direction, interpolated_normal);
+                    float cos_alpha = glm::dot(ideal_reflection, dir_to_light);
+                    
+                    FloatColor specular_brdf = FloatColor(0.0f, 0.0f, 0.0f, 1.0f);
+                    float specular_pdf = 0.0f;
+
+                    if (cos_alpha > 0.0f) {
+                        float ns = mesh.material.shininess;
+                        float pow_cos_alpha = glm::pow(cos_alpha, ns);
                         
-                        float pdf_light_w = (distance_sq * pdf_light_area) / cos_light;
-                        float pdf_brdf_w = (cos_wall / glm::pi<float>()) * diffuse_margin;
-                        float mis_weight_nee = ((float)nl_parameter * pdf_light_w) / ((float)nl_parameter * pdf_light_w + pdf_brdf_w);
-
-                        FloatColor incoming_light = emissive_search_result.owner_mesh.material.emission * brdf * cos_wall;
-                        accumulated_direct_light = accumulated_direct_light + incoming_light * (mis_weight_nee / pdf_light_w);
+                        specular_pdf = ((ns + 1.0f) / (2.0f * glm::pi<float>())) * pow_cos_alpha;
+                        specular_brdf = mesh.material.specular * (((ns + 2.0f) / (2.0f * glm::pi<float>())) * pow_cos_alpha);
                     }
-                }
 
-                if (nl_parameter > 0) {
-                    radiance = radiance + throughput * (accumulated_direct_light * (1.0f / (float)nl_parameter));
+                    FloatColor total_brdf = diffuse_brdf + specular_brdf;
+                    float combined_pdf_brdf = (diffuse_pdf * diffuse_margin) + (specular_pdf * (1.0f - diffuse_margin));
+                    
+                    float mis_weight_nee = ((float)nl_parameter * pdf_light_w) / ((float)nl_parameter * pdf_light_w + combined_pdf_brdf);
+                    
+                    FloatColor incoming_light = sampled_emission * total_brdf * cos_wall;
+                    accumulated_direct_light = accumulated_direct_light + incoming_light * (mis_weight_nee / pdf_light_w);
                 }
+            }
+
+            if (nl_parameter > 0) {
+                radiance = radiance + throughput * (accumulated_direct_light * (1.0f / (float)nl_parameter));
             }
 
             float choice = sobol_sampler.get_1d();
 
-            if (choice < diffuse_margin) {
-                ray.direction = sample_cosine_hemisphere(interpolated_normal, sobol_sampler.get_2d());
-                
-                throughput = throughput * actual_diffuse * (1.0f / diffuse_margin);
-                
-                float cos_scatter = std::max(0.0f, glm::dot(interpolated_normal, ray.direction));
-                previous_pdf_brdf = (cos_scatter / glm::pi<float>()) * diffuse_margin;
-                
-                last_bounce_specular = false;
+            glm::vec3 selected_direction;
+            float current_diffuse_pdf = 0.0f;
+            float current_specular_pdf = 0.0f;
 
-            } else {
-                ray.direction = glm::reflect(ray.direction, interpolated_normal);
+            if (choice < diffuse_margin) {
+                selected_direction = sample_cosine_hemisphere(interpolated_normal, sobol_sampler.get_2d());
+                  
+                float cos_scatter = std::max(0.0f, glm::dot(interpolated_normal, ray.direction));
+                current_diffuse_pdf = cos_scatter / glm::pi<float>();
+
+                float cos_alpha = glm::dot(ideal_reflection, selected_direction);
+                if (cos_alpha > 0.0f) {
+                    float ns = mesh.material.shininess;
+                    current_specular_pdf = ((ns + 1.0f) / (2.0f * glm::pi<float>())) * glm::pow(cos_alpha, ns);
+                }
                 
-                throughput = throughput * mesh.material.specular * (1.0f / (1.0f - diffuse_margin));
+                ray.direction = selected_direction;
+                throughput = throughput * actual_diffuse * (1.0f / diffuse_margin);
+
+            } else {                
+                float ns = mesh.material.shininess;
+
+                glm::vec2 epsilons = sobol_sampler.get_2d();
+                float alpha = 2 * glm::pi<float>() * epsilons.x;
+                float beta = glm::acos( glm::pow(epsilons.y, 1 / (ns + 1)));
+
+                glm::vec3 helper = (std::abs(ideal_reflection.z) < 0.999f) ? glm::vec3(0, 0, 1) : glm::vec3(1, 0, 0);
+                glm::vec3 tangent = glm::normalize(glm::cross(helper, ideal_reflection));
+                glm::vec3 bitangent = glm::cross(ideal_reflection, tangent);
+
+                float sin_beta = glm::sin(beta);
+                float cos_beta = glm::cos(beta);
+                float sin_alpha = glm::sin(alpha);
+                float cos_alpha = glm::cos(alpha);
+
+                selected_direction = glm::normalize(
+                    tangent * (sin_beta * cos_alpha) + 
+                    bitangent * (sin_beta * sin_alpha) + 
+                    ideal_reflection * cos_beta
+                );
+
+                float current_specular_pdf = ((ns + 1.0) / (2 * glm::pi<float>())) * glm::pow(glm::cos(beta), ns);
+
+                float cos_scatter = std::max(0.0f, glm::dot(interpolated_normal, selected_direction));
+                current_diffuse_pdf = cos_scatter / glm::pi<float>();
+
+                float specular_brdf = ((ns + 2.0f) / (2.0f * glm::pi<float>())) * glm::pow(cos_beta, ns);
+                float specular_weight = specular_brdf / current_specular_pdf;
+
+                throughput = throughput * mesh.material.specular * specular_weight * (1.0f / (1.0f - diffuse_margin));
                 
-                last_bounce_specular = true;
+                ray.direction = selected_direction;
             }
+
+            previous_pdf_brdf = (current_diffuse_pdf * diffuse_margin) + (current_specular_pdf * (1.0f - diffuse_margin));
             
             if (start_depth - depth_left > 2) {
                 float survival_ppb = std::max(throughput.red, std::max(throughput.green, throughput.blue));
@@ -207,12 +299,20 @@ FloatColor BasicRayTracer::cast_ray(SobolSampler& sobol_sampler, Ray& ray, std::
 
             ray.is_coherent = false;
         } else {
-            float t = 0.5f * (ray.direction.y + 1.0f); 
-            FloatColor horizon = {1.0f, 1.0f, 1.0f, 1.0f};
-            FloatColor zenith  = {0.5f, 0.7f, 1.0f, 1.0f};
-            FloatColor sky_color = horizon * (1.0f - t) + zenith * t;
-            float sky_intensity = 1.0f; 
-            radiance = radiance + throughput * (sky_color * sky_intensity);
+            if (scene->emissive_triangles.get_total_emissive_area() == 0.0f) {
+                auto sky_color = get_sky_color(ray.direction);
+                float mis_weight_brdf = 1.0f;
+                if (nl_parameter > 0 && start_depth - depth_left > 1) {
+                    float pdf_sky = 1.0f / (4.0f * glm::pi<float>());
+
+                    float p_sky = (scene->emissive_triangles.get_total_emissive_area() > 0.0f) ? 0.5f : 1.0f;
+                    float adjusted_pdf_nee = pdf_sky * p_sky;
+
+                    mis_weight_brdf = previous_pdf_brdf / (previous_pdf_brdf + adjusted_pdf_nee);
+                }
+
+                radiance = radiance + throughput * sky_color * mis_weight_brdf;
+            }
             break;
         }
     }

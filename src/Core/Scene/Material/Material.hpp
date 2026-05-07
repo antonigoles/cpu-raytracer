@@ -8,7 +8,7 @@ public:
     FloatColor specular = Color(0,0,0,0).as_floats();
     FloatColor ambient = Color(0,0,0,0).as_floats();
     FloatColor emission = Color(0,0,0,0).as_floats();
-    float shininess = 1;
+    float shininess = 1024;
     float opacity = 0; 
     int illumination = 0;
     bool is_emissive = false;

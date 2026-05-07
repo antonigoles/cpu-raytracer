@@ -8,6 +8,7 @@
 #include <Core/Raytracing/Raytracing.hpp>
 #include <Infrastructure/ImageWriter/ImageWriter.hpp>
 #include <chrono>
+#include <Core/Postprocessing/SimpleDenoisser.hpp>
 
 struct CameraConfig {
     glm::vec3 position{0.0f, 0.0f, 0.0f};
@@ -115,6 +116,8 @@ void run_scene_form_config(const SceneConfig& config)
     auto rendering_duration = (double)std::chrono::duration_cast<std::chrono::milliseconds>(rendering_end - rendering_start).count() / 1000.0f;
     
     if (config.write_exr) {
+        log_info("Denoising...");
+        SimpleDenoiser::inplace_denoise(ray_traced_buffer);
         image_writer.write_exr_from_floatcolor_buffer(&ray_traced_buffer, config.output_file);
     } else {
         log_err("NOT IMPLEMENTED ERROR: JPEG WRITING DOESNT WORK FOR NOW!");
@@ -177,7 +180,7 @@ int boot_from_params(int argc, char **argv)
     po::variables_map vm;
     try {
         using namespace po::command_line_style;
-        int style = allow_long | long_allow_adjacent | long_allow_next | case_insensitive;
+        int style = allow_long | long_allow_adjacent | long_allow_next | case_insensitive | allow_long_disguise;
 
         po::store(
             po::parse_command_line(argc, argv, desc, style), 
