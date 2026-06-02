@@ -1,5 +1,4 @@
 build/
 build-debug/
 .idea/
-demos/*.log
 demos/*.jpg

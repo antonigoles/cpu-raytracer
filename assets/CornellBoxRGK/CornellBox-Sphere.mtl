@@ -20,17 +20,18 @@ newmtl leftSphere
     illum 5
     
 newmtl rightSphere
-    Ka 0.01 0.01 0.01
-    Kd 0.01 0.01 0.01
+    Ka 0.0 0.0 0.0
+    Kd 0.0 0.0 0.0
     Ks 0.30 0.30 0.30
-    Tf 0.10 0.10 0.10
+    Tf 1.00 1.00 1.00
     Ns 10024
     Ni 2.5
+    d 0
     illum 7
    
 newmtl floor
     Ns 10.0000
-    Ni 1.5000
+    Ni 1
     illum 2
     Ka 0.7250 0.7100 0.6800
     Kd 0.7250 0.7100 0.6800
@@ -38,7 +39,7 @@ newmtl floor
 
 newmtl ceiling
     Ns 10.0000
-    Ni 1.5000
+    Ni 1
     illum 2
     Ka 0.7250 0.7100 0.6800
     Kd 0.7250 0.7100 0.6800
@@ -46,7 +47,7 @@ newmtl ceiling
 
 newmtl backWall
 	Ns 10.0000
-	Ni 1.5000
+	Ni 1
 	illum 2
 	Ka 0.7250 0.7100 0.6800
 	Kd 0.7250 0.7100 0.6800
@@ -69,12 +70,12 @@ newmtl leftWall
 
 newmtl light
 	Ns 10.0000
-	Ni 1.5000
+	Ni 1
 	d 1.0000
 	Tr 0.0000
 	Tf 1.0000 1.0000 1.0000 
 	illum 2
 	Ka 0.7800 0.7800 0.7800
 	Kd 0.7800 0.7800 0.7800
-    Ke 10 10 10
+    Ke 30 30 30
 	Ks 0 0 0

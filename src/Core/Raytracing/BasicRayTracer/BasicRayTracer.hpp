@@ -1,5 +1,5 @@
 #pragma once
-#include <vector>
+#include "Core/Raytracing/BasicRayTracer/PhotonMap.hpp"
 #include <Core/FloatColor/FloatColor.hpp>
 #include <Core/Scene/Scene.hpp>
 #include <Core/Raytracing/Ray/Ray.hpp>
@@ -11,6 +11,7 @@
 class BasicRayTracer
 {
 private:
+    PhotonMap caustic_photon_map;
     std::shared_ptr<AbstractRayTracingEngine> rt_engine;
     float ray_normal_bias;
 
@@ -18,8 +19,20 @@ public:
     BasicRayTracer(std::shared_ptr<AbstractRayTracingEngine> raytracing_engine) {
         this->rt_engine = raytracing_engine;
     };
+
+    void build_caustic_photon_map(
+        SobolSampler& sobol_sampler,
+        std::shared_ptr<Scene> scene,
+        uint32_t total_photon_count
+    );
     
-    FloatColor cast_ray(SobolSampler& sobol_sampler, Ray& ray, std::shared_ptr<Scene>, uint32_t depth_left = 8, uint32_t nl_parameter = 1);
+    FloatColor cast_ray(
+        SobolSampler& sobol_sampler, 
+        Ray& ray, 
+        std::shared_ptr<Scene> scene, 
+        uint32_t depth_left = 8, 
+        uint32_t nl_parameter = 1
+    );
 
     Buffer2D<Fragment> ray_trace_scene(
         std::shared_ptr<Scene> scene, 

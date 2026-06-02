@@ -19,9 +19,9 @@ public:
 
 class WeightedEmissiveTriangleList
 {
-private:
-    std::vector<WeightedEmissiveTriangleListElement> container;
 public:
+    std::vector<WeightedEmissiveTriangleListElement> container;
+    
     WeightedEmissiveTriangleList();
 
     void insert(Mesh& owner_mesh, glm::vec3 trig[3]);

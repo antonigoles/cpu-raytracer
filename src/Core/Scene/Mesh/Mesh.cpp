@@ -22,6 +22,10 @@ void Mesh::dump_from_assimp_material_to_internal_material(aiMaterial* assimp_mat
         material.ambient = FloatColor((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
     }
 
+    if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_COLOR_TRANSPARENT, color_dump)) {
+        material.transmission = FloatColor((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
+    }
+
     if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_COLOR_EMISSIVE, color_dump)) {
         material.emission = FloatColor((float)color_dump.r, (float)color_dump.g, (float)color_dump.b, (float)color_dump.a);
         if (material.emission.red + material.emission.green + material.emission.blue > 0.0f) {
@@ -46,11 +50,12 @@ void Mesh::dump_from_assimp_material_to_internal_material(aiMaterial* assimp_mat
     }
 
     if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_OPACITY, float_dump)) {
-        material.opacity = float_dump; 
+        material.opacity = float_dump;
     }
 
-    // note: this is basically useless
-    if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_SHADING_MODEL, shading_mode_dump)) {
-        material.assimp_shading_mode = shading_mode_dump;
+    if (AI_SUCCESS == assimp_material->Get(AI_MATKEY_REFRACTI, float_dump)) {
+        material.refraction = float_dump;
     }
+    
+    material.print_material();
 }

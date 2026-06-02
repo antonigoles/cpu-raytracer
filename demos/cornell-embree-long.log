@@ -1,0 +1,5 @@
+engine: Embree
+rsa_structure_build_duration: 0.002
+rendering_duration: 592.843
+total_rays_shot: 988377270
+rays_per_second: 1667182.125
