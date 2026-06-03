@@ -99,8 +99,12 @@ void BasicRayTracer::build_caustic_photon_map(
             auto ray = Ray{.base = point, .direction = direction};
             RayHit ray_hit = rt_engine->intersect(ray);
 
+            int bounce_limit = 5;
+
             // 4. Lets start the ray tracing loop
             while (ray_hit.has_hit) {
+                bounce_limit--;
+                if (bounce_limit == 0) break;
                 const auto& material = scene->meshes[ray_hit.mesh_index].material;
 
                 if (material.is_emissive) {
@@ -133,29 +137,15 @@ void BasicRayTracer::build_caustic_photon_map(
                 glm::vec3 interpolated_normal = glm::normalize((w * n0) + (u * n1) + (v * n2));
 
                 if (choice <= diffuse_margin) {
-                    // We handle diffuse
-                    // if (glm::dot(ray.direction, interpolated_normal) > 0.0f) {
-                    //     interpolated_normal = -interpolated_normal;
-                    // }
-
                     if (had_refraction_bounce) {
                         photon_vector.push_back(Photon{
                             .emission = photon_emission,
                             .intersection = interpolated_point,
                             .direction = ray.direction,
                         });
-                        break; // one specular bounce should appereantly be enough
+                        break;
                     }
                     break;
-                    // float survival_probability = diffuse_strength;
-                    // if (sobol_sampler.get_1d() > survival_probability) {
-                    //     break;
-                    // }
-                    // ray = Ray{
-                    //     .base = interpolated_point + (interpolated_normal * 0.001f),
-                    //     .direction = sample_cosine_hemisphere(interpolated_normal, sobol_sampler.get_2d())
-                    // };
-                    // photon_emission = photon_emission * material.diffuse * (1.0f / (diffuse_margin * survival_probability));
                 } else {
                     if (material.opacity < 1.0f) {
                         float eta_i = 1.0f;
@@ -193,9 +183,10 @@ void BasicRayTracer::build_caustic_photon_map(
 
                         if (simple_random() < reflection_prob) {
                             ray = Ray{
-                                .base = interpolated_point + (outward_normal * 0.001f),
+                                .base = interpolated_point,
                                 .direction = glm::reflect(ray.direction, outward_normal)
                             };
+                            ray.near = 0.0001f;
 
                             photon_emission = (photon_emission * material.specular) * (1.0f / (survival_probability * (1.0f - diffuse_margin)));
                         } else {
@@ -427,7 +418,7 @@ FloatColor BasicRayTracer::cast_ray(
                 radiance = radiance + throughput * (accumulated_direct_light * (1.0f / (float)nl_parameter));
             }
 
-            if ((start_depth - depth_left) <= 1 && diffuse_margin > 0.1f) {
+            if ((start_depth - depth_left) <= 1 && diffuse_margin > 0.01f) {
                 uint32_t N_photons = 100; // zhardcodeowane póki co
                 std::vector<Photon> found_photons = this->caustic_photon_map.search(interpolated_point, N_photons, 0.5f);
                 if (found_photons.size() >= 10) { 

@@ -1,12 +1,31 @@
-np=64
+np=1024
 nl=1
 
 mkdir -p build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build .
 # ./RayTracer
+# ./RayTracer \
+#     --in "../assets/CornellBoxHR/CornellBox.obj" \
+#     --vp 0.0 0.8 2.4 \
+#     --vd 0.0 0.0 -1.0 \
+#     --up 0.0 1.0 0.0 \
+#     --focal_length 1.0 \
+#     --fovy 60 \
+#     --res 1280 960 \
+#     --r 32 \
+#     --np $np \
+#     --nl $nl \
+#     --exr true \
+#     --jitter_scale 0 \
+#     --engine "Embree" \
+#     --ray_normal_bias 0.01 \
+#     --o "../demos/cornell_render-np$np-nl$nl.exr" \
+#     --metrics_path "../demos/cornell-np$np-nl$nl.log"
+# iv ../demos/cornell_render-np$np-nl$nl.exr &> /dev/null
+
 ./RayTracer \
-    --in "../assets/CornellBoxHR/CornellBox.obj" \
+    --in "../assets/TestRoom/TestRoom.obj" \
     --vp 0.0 0.8 2.4 \
     --vd 0.0 0.0 -1.0 \
     --up 0.0 1.0 0.0 \
@@ -20,9 +39,9 @@ cmake --build .
     --jitter_scale 0 \
     --engine "Embree" \
     --ray_normal_bias 0.01 \
-    --o "../demos/cornell_render-np$np-nl$nl.exr" \
-    --metrics_path "../demos/cornell-np$np-nl$nl.log"
-iv ../demos/cornell_render-np$np-nl$nl.exr &> /dev/null
+    --o "../demos/testroom_render-np$np-nl$nl.exr" \
+    --metrics_path "../demos/testroom-np$np-nl$nl.log"
+iv ../demos/testroom_render-np$np-nl$nl.exr &> /dev/null
 
 # ./RayTracer \
 #     --in "./assets/conference/conference.obj" \
