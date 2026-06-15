@@ -44,10 +44,10 @@ cmake --build .
 # iv ../demos/cornell_water_render-np$np-nl$nl-ppm.exr &> /dev/null
 
 ppm_pc=500000
-ppm_ppc=16
+ppm_ppc=1
 ppm_a=0.7
 ppm_sr=0.4
-ppm_pgl=500
+ppm_pgl=1000
 suffix=$ppm_pc-$ppm_ppc-$ppm_a-$ppm_sr-$ppm_pgl
 
 # ./RayTracer \
@@ -80,7 +80,7 @@ suffix=$ppm_pc-$ppm_ppc-$ppm_a-$ppm_sr-$ppm_pgl
     --vd 0.0 0.0 -1.0 \
     --up 0.0 1.0 0.0 \
     --focal_length 1.0 \
-    --fovy 60 \
+    --fovy 54.4 \
     --res 1280 960 \
     --r 32 \
     --np $np \

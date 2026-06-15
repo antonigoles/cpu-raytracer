@@ -85,7 +85,7 @@ void run_scene_from_config_with_ppm(const SceneConfig& config, std::shared_ptr<S
     if (config.write_exr) {
         image_writer.write_exr_from_floatcolor_buffer(ray_traced_buffer, config.output_file);
     } else {
-        log_err("NOT IMPLEMENTED ERROR: JPEG WRITING DOESNT WORK FOR NOW!");
+        image_writer.write_tone_mapped_jpg_from_tone_map(ray_traced_buffer, config.output_file);
     }
 
     float rays_per_second = (float)rt_engine->get_performance_metric().rays_shot / rendering_duration;

@@ -14,4 +14,6 @@ public:
     void write_vide_from_buffer_vector(std::vector<Buffer2D<Fragment>>& frames, const std::string& filepath, int fps = 60);
 
     void write_exr_from_floatcolor_buffer(const Buffer2D<FloatColor> &buffer, const std::string& path);
+
+    void write_tone_mapped_jpg_from_tone_map(const Buffer2D<FloatColor> &buffer, const std::string& path, float exposure = 1.0f);
 };

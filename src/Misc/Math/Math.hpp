@@ -88,4 +88,27 @@ public:
 
         return ggx1 * ggx2;
     }
+
+    static glm::vec3 ggx_sample(glm::vec3 normal, glm::vec3 view_dir, float roughness, glm::vec2 random_sample) {
+        // Derived in similar way to blinn-phong
+        // Idea: https://computergraphics.stackexchange.com/questions/4979/what-is-importance-sampling
+        float a = roughness * roughness;
+        float phi = 2.0f * glm::pi<float>() * random_sample.x;
+        float cosTheta = glm::sqrt((1.0f - random_sample.y) / (1.0f + (a*a - 1.0f) * random_sample.y));
+        float sinTheta = glm::sqrt(1.0f - cosTheta * cosTheta);
+
+        glm::vec3 H;
+        H.x = glm::cos(phi) * sinTheta;
+        H.y = glm::sin(phi) * sinTheta;
+        H.z = cosTheta;
+
+        glm::vec3 up = std::abs(normal.z) < 0.999f ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+        glm::vec3 tangent = glm::normalize(glm::cross(up, normal));
+        glm::vec3 bitangent = glm::cross(normal, tangent);
+
+        glm::vec3 world_H = tangent * H.x + bitangent * H.y + normal * H.z;
+        world_H = glm::normalize(world_H);
+
+        return glm::reflect(-view_dir, world_H);
+    }
 };

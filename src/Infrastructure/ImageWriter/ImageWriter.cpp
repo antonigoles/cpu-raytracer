@@ -1,4 +1,8 @@
+#include "Core/FloatColor/FloatColor.hpp"
+#include "Core/Fragment/Fragment.hpp"
 #include <Infrastructure/ImageWriter/ImageWriter.hpp>
+#include <algorithm>
+#include <glm/ext/quaternion_exponential.hpp>
 #include <stb/stb.hpp>
 #include <Infrastructure/Logger/Logger.hpp>
 #include <OpenEXR/ImfRgbaFile.h>
@@ -106,4 +110,34 @@ void ImageWriter::write_exr_from_floatcolor_buffer(const Buffer2D<FloatColor> &b
     } catch (const std::exception& e) {
         log_err("Error while saving to OpenEXR: ", e.what());
     }
+}
+
+FloatColor tone_map_reinhard_luminance(const FloatColor& hdr_color, float exposure = 1.0f) 
+{
+    FloatColor exposed = hdr_color * exposure;
+    float l_old = exposed.strength();
+    float l_new = l_old / (1.0f + l_old);
+    float change_ratio = (l_old > 0.0001f) ? (l_new / l_old) : 0.0f;
+    return exposed * change_ratio;
+}
+
+void ImageWriter::write_tone_mapped_jpg_from_tone_map(const Buffer2D<FloatColor> &buffer, const std::string& path, float exposure)
+{
+    Buffer2D<Fragment> pixel_buffer(buffer.get_width(), buffer.get_height());
+    for (ssize_t x = 0; x<buffer.get_width(); x++) {
+        for (ssize_t y = 0; y<buffer.get_height(); y++) {
+            FloatColor v = *buffer.at(x, y);
+            v = tone_map_reinhard_luminance(v, exposure);
+            FloatColor final_color(
+                glm::pow(v.red, 1.0f / 2.2f),
+                glm::pow(v.green, 1.0f / 2.2f),
+                glm::pow(v.blue, 1.0f / 2.2f)
+            );
+            unsigned char r = static_cast<unsigned char>(std::clamp(final_color.red * 255.0f, 0.0f, 255.0f));
+            unsigned char g = static_cast<unsigned char>(std::clamp(final_color.green * 255.0f, 0.0f, 255.0f));
+            unsigned char b = static_cast<unsigned char>(std::clamp(final_color.blue * 255.0f, 0.0f, 255.0f));
+            pixel_buffer.write(x, y, Fragment{r, g, b, 255});
+        } 
+    }
+    ImageWriter::write_jpg_from_frame_buffer(&pixel_buffer, path);
 }
