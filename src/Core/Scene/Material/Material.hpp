@@ -4,6 +4,13 @@
 #include <Core/Color/Color.hpp>
 #include <assimp/material.h>
 
+// Material rules to be somewhat PBR
+// 1. Fresnel decides wheter we're bouncing or not (reflection or not)
+//  - shininess will decide wheter this bounce is perfect or not
+// 2. After that some amount of energy will be transmited to the other side (transmission)
+// 3. And some amount of energy will be diffused (diffuse)
+
+
 class Material 
 {
 public:
@@ -12,13 +19,24 @@ public:
     FloatColor ambient = Color(0,0,0,0).as_floats();
     FloatColor emission = Color(0,0,0,0).as_floats();
     FloatColor transmission = Color(0,0,0,0).as_floats();
-    float shininess = 1024;
+    float shininess = 0.0f;
     float opacity = 1.0f; 
     float refraction = 1.0f;
     int illumination = 0;
     bool is_emissive = false;
 
     aiShadingMode assimp_shading_mode;
+
+    bool is_glossy() const
+    {
+        return shininess < 1000.0f && specular.strength() > 0.0f;
+    }
+
+    bool is_non_glossy_refractive() const
+    {
+        // High NS & Some transmission
+        return shininess > 1000.0f && transmission.strength() > 0.0f;
+    }
 
     void print_material()
     {

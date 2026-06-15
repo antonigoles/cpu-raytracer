@@ -14,17 +14,17 @@
 
 newmtl leftSphere
     Ka 0.01 0.01 0.01
-    Kd 0.01 0.01 0.01
+    Kd 0.05 0.05 0.05
     Ks 0.95 0.95 0.95
-    Ns 10024
+    Ni 80.0
+    Ns 1024
     illum 5
     
 newmtl rightSphere
     Ka 0.0 0.0 0.0
-    Kd 0.0 0.0 0.0
+    Kd 1.00 1.00 1.00
     Ks 0.30 0.30 0.30
-    Tf 1.00 1.00 1.00
-    Ns 10024
+    Ns 1024
     Ni 2.5
     d 0
     illum 7
@@ -77,5 +77,5 @@ newmtl light
 	illum 2
 	Ka 0.7800 0.7800 0.7800
 	Kd 0.7800 0.7800 0.7800
-    Ke 30 30 30
+    Ke 10 10 10
 	Ks 0 0 0

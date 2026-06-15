@@ -1,4 +1,5 @@
 #pragma once
+#include "Core/Scene/Material/PBRMaterial.hpp"
 #include <vector>
 #include <assimp/scene.h>
 #include <glm/glm.hpp>
@@ -15,6 +16,7 @@ public:
     std::vector<Triangle> triangles;
     Texture texture;
     Material material;
+    PBRMaterial pbr_material;
 
     void dump_from_assimp_material_to_internal_material(aiMaterial* assimp_material);
 };

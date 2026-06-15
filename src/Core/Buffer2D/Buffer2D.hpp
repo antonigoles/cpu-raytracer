@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 #include <stdint.h>
 
 template<typename T>
@@ -11,6 +12,7 @@ private:
 public:
     Buffer2D(uint32_t width, uint32_t height) : width(width), height(height) {
         buffer_data = new T[width * height];
+        memset(buffer_data, 0, sizeof(T) * width * height);
     };
 
     ~Buffer2D() {
@@ -26,15 +28,15 @@ public:
     Buffer2D(const Buffer2D&) = delete;
     Buffer2D& operator=(const Buffer2D&) = delete;
 
-    uint32_t get_width() {
+    uint32_t get_width() const {
         return width;
     };
 
-    uint32_t get_height() {
+    uint32_t get_height() const {
         return height;
     };
 
-    T* at(uint32_t x, uint32_t y) {
+    T* at(uint32_t x, uint32_t y) const {
         return &this->buffer_data[this->width * y + x];
     };
 
@@ -42,7 +44,7 @@ public:
         this->buffer_data[this->width * y + x] = data;
     };
 
-    uint8_t* bytes() {
+    uint8_t* bytes() const {
         return (uint8_t*)buffer_data;
     };
 };

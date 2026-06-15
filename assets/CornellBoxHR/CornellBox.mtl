@@ -1,81 +1,82 @@
-# The sphere Cornell Box as seen in Henrik Jensen's 
-# "Realistic Image Synthesis Using Photon Mapping" (Page 107 Fig. 9.10) in OBJ format.
-# Note that the real box is not a perfect cube, so
-# the faces are imperfect in this data set.
-#
-# Created by Guedis Cardenas and Morgan McGuire at Williams College, 2011
-# Released into the Public Domain.
-#
-# http://graphics.cs.williams.edu/data
-# http://www.graphics.cornell.edu/online/box/data.html
-# http://www.cs.cmu.edu/~djames/15-864/pics/cornellBox.jpg
-#
+# Blender 4.0.2 MTL File: 'None'
+# www.blender.org
 
+newmtl backWall.001
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Kd 0.725000 0.710000 0.680000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
 
-newmtl leftSphere
-    Ka 0.01 0.01 0.01
-    Kd 0.01 0.01 0.01
-    Ks 0.95 0.95 0.95
-    Ns 10024
-    illum 5
-    
-newmtl rightSphere
-    Ka 0.0 0.0 0.0
-    Kd 0.0 0.0 0.0
-    Ks 0.30 0.30 0.30
-    Tf 1.00 1.00 1.00
-    Ns 10024
-    Ni 2.5
-    d 0
-    illum 7
-   
-newmtl floor
-    Ns 10.0000
-    Ni 1
-    illum 2
-    Ka 0.7250 0.7100 0.6800
-    Kd 0.7250 0.7100 0.6800
-	Ks 0 0 0
+newmtl ceiling.001
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Kd 0.725000 0.710000 0.680000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
 
-newmtl ceiling
-    Ns 10.0000
-    Ni 1
-    illum 2
-    Ka 0.7250 0.7100 0.6800
-    Kd 0.7250 0.7100 0.6800
-    Ks 0.0000 0.0000 0.0000
+newmtl floor.001
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Kd 0.725000 0.710000 0.680000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
 
-newmtl backWall
-	Ns 10.0000
-	Ni 1
-	illum 2
-	Ka 0.7250 0.7100 0.6800
-	Kd 0.7250 0.7100 0.6800
-	Ks 0.0000 0.0000 0.0000
-	Ke 0.0000 0.0000 0.0000
+newmtl leftSphere.001
+Ns 1000.000000
+Ka 0.010000 0.010000 0.010000
+Kd 0.010000 0.010000 0.010000
+Ks 0.950000 0.950000 0.950000
+Ke 0.000000 0.000000 0.000000
+Ni 80.000000
+d 1.000000
+illum 3
 
-newmtl rightWall
-    Ns 10.0000
-    illum 2
-    Ka 0.161 0.133 0.427 # Blue
-    Kd 0.161 0.133 0.427
-	Ks 0 0 0
-    
-newmtl leftWall
-	Ns 10.0000
-	illum 2
-	Ka 0.6300 0.0650 0.0500
-	Kd 0.6300 0.0650 0.0500
-	Ks 0 0 0
+newmtl leftWall.001
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Kd 0.630000 0.065000 0.050000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1
 
-newmtl light
-	Ns 10.0000
-	Ni 1
-	d 1.0000
-	Tr 0.0000
-	Tf 1.0000 1.0000 1.0000 
-	illum 2
-	Ka 0.7800 0.7800 0.7800
-	Kd 0.7800 0.7800 0.7800
-    Ke 30 30 30
-	Ks 0 0 0
+newmtl light.001
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Kd 0.780000 0.780000 0.780000
+Ks 0.000000 0.000000 0.000000
+Ke 30.000000 30.000000 30.000000
+Ni 1.000000
+d 1.000000
+illum 1
+
+newmtl rightSphere.001
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.000000
+illum 1
+
+newmtl rightWall.001
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Kd 0.161000 0.133000 0.427000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 1

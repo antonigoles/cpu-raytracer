@@ -13,5 +13,5 @@ public:
 
     void write_vide_from_buffer_vector(std::vector<Buffer2D<Fragment>>& frames, const std::string& filepath, int fps = 60);
 
-    void write_exr_from_floatcolor_buffer(Buffer2D<FloatColor> *buffer, const std::string& path);
+    void write_exr_from_floatcolor_buffer(const Buffer2D<FloatColor> &buffer, const std::string& path);
 };

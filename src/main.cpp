@@ -1,3 +1,4 @@
+#include "Core/Raytracing/PPM/ProgressivePhotonMapper.hpp"
 #include <iostream>
 #include <stdint.h>
 #include <Infrastructure/Logger/Logger.hpp>
@@ -9,6 +10,7 @@
 #include <Infrastructure/ImageWriter/ImageWriter.hpp>
 #include <chrono>
 #include <Core/Postprocessing/SimpleDenoisser.hpp>
+#include <sys/types.h>
 
 struct CameraConfig {
     glm::vec3 position{0.0f, 0.0f, 0.0f};
@@ -16,6 +18,15 @@ struct CameraConfig {
     glm::vec3 up{0.0f, 1.0f, 0.0f};
     float fovy = 45.0f;
     float focal_length = 1.0f;
+};
+
+struct PhotomMapperConfig
+{
+    int photon_count = 1000000;
+    int photon_passes_count = 1;
+    float alpha = 0.7f;
+    float starting_radius = 0.1f;
+    int photon_gather_limit = 1000;
 };
 
 struct SceneConfig {
@@ -28,6 +39,7 @@ struct SceneConfig {
     std::string input_path = "";
     std::string engine = "Embree";
     std::string metrics_path = "metrics.log";
+    std::string illumination_technique = "ppm";
     float ray_normal_bias = 0.0001f;
     bool live_preview = false;
     int sample_per_pixel_sqrt = 4;
@@ -35,59 +47,60 @@ struct SceneConfig {
     int nl_parameter = 1;
     bool write_exr = false;
     int np = 0;
+    PhotomMapperConfig ppm_config;
 };
 
 std::string v3_to_str(const glm::vec3 v) {
     return std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z);
 }
 
-void run_scene_form_config(const SceneConfig& config)
+void run_scene_from_config_with_ppm(const SceneConfig& config, std::shared_ptr<Scene> scene, std::shared_ptr<AbstractRayTracingEngine> rt_engine)
 {
-    // debug
+    auto building_scene_start = std::chrono::high_resolution_clock::now();
+    rt_engine->build_from_scene(scene);
+    auto building_scene_end = std::chrono::high_resolution_clock::now();
+    auto building_scene_duration = (double)std::chrono::duration_cast<std::chrono::milliseconds>(building_scene_end - building_scene_start).count() / 1000.0f;
 
-    log_verbose(
-        "cam.position: ", v3_to_str(config.cam.position), "\n",
-        "cam.direction: ", v3_to_str(config.cam.direction), "\n",
-        "cam.up: ", v3_to_str(config.cam.up), "\n",
-        "cam.fovy: ", config.cam.fovy, "\n",
-        "cam.focal_length: ", config.cam.focal_length, "\n",
-        "point_lights.count(): ", config.point_lights.size(), "\n",
-        "recursion_level: ", config.recursion_level, "\n",
-        "resolution.x: ", config.resolution.x, "\n",
-        "resolution.y: ", config.resolution.y, "\n",
-        "output_file: ", config.output_file, "\n",
-        "input_path: ", config.input_path, "\n",
-        "engine: ", config.engine, "\n",
-        "metrics_path: ", config.metrics_path, "\n",
-        "ray_normal_bias: ", config.ray_normal_bias, "\n",
-        "nl_parameter: ", config.nl_parameter, "\n",
-        "np: ", config.np, "\n"
+    auto image_writer = ImageWriter();
+    auto ray_tracer = ProgressivePhotonMapper(
+        rt_engine, 
+        scene, 
+        config.resolution.x, 
+        config.resolution.y, 
+        config.ppm_config.alpha, 
+        config.ppm_config.photon_count, 
+        config.ppm_config.starting_radius,
+        config.ppm_config.photon_gather_limit
     );
 
-    // setup the scene itself 
-    auto main_camera = std::make_shared<Camera>();
-    main_camera->up = config.cam.up;
-    main_camera->position = config.cam.position;
-    main_camera->rotation = glm::lookAt(config.cam.position, config.cam.position + config.cam.direction, config.cam.up);
-    main_camera->fov = glm::radians(config.cam.fovy);
-    auto scene_loader = SceneLoader();
-    std::shared_ptr<Scene> scene = scene_loader.load_scene_from_file(config.input_path);
-    scene->camera = main_camera;
-
-    scene->point_light_sources = config.point_lights;
-    scene->sphere_light_sources = config.sphere_lights;
+    auto rendering_start = std::chrono::high_resolution_clock::now();
+    ray_tracer.initialize();
+    for (int i = 0; i < config.ppm_config.photon_passes_count; i++) {
+        ray_tracer.run_next_photon_map_step();
+    }
+    auto& ray_traced_buffer = ray_tracer.get_result();
+    auto rendering_end = std::chrono::high_resolution_clock::now();
+    auto rendering_duration = (double)std::chrono::duration_cast<std::chrono::milliseconds>(rendering_end - rendering_start).count() / 1000.0f;
     
-    // Render scene
-    std::shared_ptr<AbstractRayTracingEngine> rt_engine = std::make_shared<HavranKDTreeRayTracingEngine>();
-    if (config.engine == "Embree") {
-        rt_engine = std::make_shared<EmbreeRayTracingEngine>();
+    if (config.write_exr) {
+        image_writer.write_exr_from_floatcolor_buffer(ray_traced_buffer, config.output_file);
+    } else {
+        log_err("NOT IMPLEMENTED ERROR: JPEG WRITING DOESNT WORK FOR NOW!");
     }
 
-    if (config.engine == "HavranKDTree") {
-        rt_engine = std::make_shared<HavranKDTreeRayTracingEngine>();
-    }
+    float rays_per_second = (float)rt_engine->get_performance_metric().rays_shot / rendering_duration;
+    
+    log_file(config.metrics_path,
+        "engine: ", config.engine, "\n",
+        "rsa_structure_build_duration: ", building_scene_duration, "\n",
+        "rendering_duration: ", rendering_duration, "\n",
+        "total_rays_shot: ", rt_engine->get_performance_metric().rays_shot, "\n",
+        "rays_per_second: ", rays_per_second
+    );
+}
 
-    // auto rt_engine = std::make_shared<EmbreeRayTracingEngine>();
+void run_scene_from_config_with_path_tracer(const SceneConfig& config, std::shared_ptr<Scene> scene, std::shared_ptr<AbstractRayTracingEngine> rt_engine)
+{
     auto building_scene_start = std::chrono::high_resolution_clock::now();
     rt_engine->build_from_scene(scene);
     auto building_scene_end = std::chrono::high_resolution_clock::now();
@@ -118,7 +131,7 @@ void run_scene_form_config(const SceneConfig& config)
     if (config.write_exr) {
         log_info("Denoising...");
         SimpleDenoiser::inplace_denoise(ray_traced_buffer);
-        image_writer.write_exr_from_floatcolor_buffer(&ray_traced_buffer, config.output_file);
+        image_writer.write_exr_from_floatcolor_buffer(ray_traced_buffer, config.output_file);
     } else {
         log_err("NOT IMPLEMENTED ERROR: JPEG WRITING DOESNT WORK FOR NOW!");
     }
@@ -132,6 +145,64 @@ void run_scene_form_config(const SceneConfig& config)
         "total_rays_shot: ", rt_engine->get_performance_metric().rays_shot, "\n",
         "rays_per_second: ", rays_per_second
     );
+}
+
+void run_scene_form_config(const SceneConfig& config)
+{
+    // debug
+    log_verbose(
+        "cam.position: ", v3_to_str(config.cam.position), "\n",
+        "cam.direction: ", v3_to_str(config.cam.direction), "\n",
+        "cam.up: ", v3_to_str(config.cam.up), "\n",
+        "cam.fovy: ", config.cam.fovy, "\n",
+        "cam.focal_length: ", config.cam.focal_length, "\n",
+        "point_lights.count(): ", config.point_lights.size(), "\n",
+        "recursion_level: ", config.recursion_level, "\n",
+        "resolution.x: ", config.resolution.x, "\n",
+        "resolution.y: ", config.resolution.y, "\n",
+        "output_file: ", config.output_file, "\n",
+        "input_path: ", config.input_path, "\n",
+        "engine: ", config.engine, "\n",
+        "metrics_path: ", config.metrics_path, "\n",
+        "ray_normal_bias: ", config.ray_normal_bias, "\n",
+        "nl_parameter: ", config.nl_parameter, "\n",
+        "np: ", config.np, "\n",
+        "ppm_config.photon_count: ", config.ppm_config.photon_count, "\n",
+        "ppm_config.photon_passes_count: ", config.ppm_config.photon_passes_count, "\n",
+        "ppm_config.alpha: ", config.ppm_config.alpha, "\n",
+        "ppm_config.photon_gather_limit: ", config.ppm_config.photon_gather_limit, "\n",
+        "ppm_config.starting_radius: ", config.ppm_config.starting_radius, "\n"
+        "illumination_technique: ", config.illumination_technique, "\n"
+    );
+
+    // setup the scene itself 
+    auto main_camera = std::make_shared<Camera>();
+    main_camera->up = config.cam.up;
+    main_camera->position = config.cam.position;
+    main_camera->rotation = glm::lookAt(config.cam.position, config.cam.position + config.cam.direction, config.cam.up);
+    main_camera->fov = glm::radians(config.cam.fovy);
+    auto scene_loader = SceneLoader();
+    std::shared_ptr<Scene> scene = scene_loader.load_scene_from_file(config.input_path);
+    scene->camera = main_camera;
+
+    scene->point_light_sources = config.point_lights;
+    scene->sphere_light_sources = config.sphere_lights;
+    
+    // Render scene
+    std::shared_ptr<AbstractRayTracingEngine> rt_engine = std::make_shared<HavranKDTreeRayTracingEngine>();
+    if (config.engine == "Embree") {
+        rt_engine = std::make_shared<EmbreeRayTracingEngine>();
+    }
+
+    if (config.engine == "HavranKDTree") {
+        rt_engine = std::make_shared<HavranKDTreeRayTracingEngine>();
+    }
+
+    if (config.illumination_technique == "ppm") {
+        run_scene_from_config_with_ppm(config, scene, rt_engine);
+    } else {
+        run_scene_from_config_with_path_tracer(config, scene, rt_engine);
+    }
 }
 
 glm::vec3 to_vec3(const std::vector<float>& v, const std::string& name) {
@@ -168,6 +239,13 @@ int boot_from_params(int argc, char **argv)
             ("metrics_path", po::value<std::string>(&config.metrics_path), "Sciezka gdzie maja zostac zapisane metrics")
             ("ray_normal_bias", po::value<float>(&config.ray_normal_bias), 
             "Współczynnik przesuniecia promienia wzdłóż wektora normalnego odbijanego trójąta (do naprawiania shadow acnee)")
+
+            // PPM config
+            ("ppm_pc", po::value<int>(&config.ppm_config.photon_count), "[ppm] photon count")
+            ("ppm_ppc", po::value<int>(&config.ppm_config.photon_passes_count), "[ppm] photon passes count")
+            ("ppm_a", po::value<float>(&config.ppm_config.alpha), "[ppm] alpha")
+            ("ppm_sr", po::value<float>(&config.ppm_config.starting_radius), "[ppm] starting radius")
+            ("ppm_pgl", po::value<int>(&config.ppm_config.photon_gather_limit), "[ppm] photon gather limit")
 
             ("res", po::value<std::vector<int>>()->multitoken(), "Rozdzielczość (dimx dimy)")
             

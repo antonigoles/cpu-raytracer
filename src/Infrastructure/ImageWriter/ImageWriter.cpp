@@ -78,14 +78,14 @@ bool check_illegal_hdr_color(FloatColor* value)
         check_illegal_hdr_float(value->alpha);
 }
 
-void ImageWriter::write_exr_from_floatcolor_buffer(Buffer2D<FloatColor> *buffer, const std::string& path)
+void ImageWriter::write_exr_from_floatcolor_buffer(const Buffer2D<FloatColor> &buffer, const std::string& path)
 {
-    int width = buffer->get_width();
-    int height = buffer->get_height();
+    int width = buffer.get_width();
+    int height = buffer.get_height();
     Imf::Array2D<Imf::Rgba> pixels(height, width);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            FloatColor* col = buffer->at(x, y);
+            FloatColor* col = buffer.at(x, y);
             pixels[y][x] = Imf::Rgba(
                 std::min(65000.0f, col->red), 
                 std::min(65000.0f, col->green), 
@@ -93,7 +93,7 @@ void ImageWriter::write_exr_from_floatcolor_buffer(Buffer2D<FloatColor> *buffer,
                 1.0f
             );
             if (check_illegal_hdr_color(col)) {
-                log_info("Illegal value spotted during EXR compilation");
+                log_verbose("Illegal value spotted during EXR compilation");
             }
         }
     }
