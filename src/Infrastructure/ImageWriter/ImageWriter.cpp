@@ -121,13 +121,40 @@ FloatColor tone_map_reinhard_luminance(const FloatColor& hdr_color, float exposu
     return exposed * change_ratio;
 }
 
-void ImageWriter::write_tone_mapped_jpg_from_tone_map(const Buffer2D<FloatColor> &buffer, const std::string& path, float exposure)
+float calculate_auto_exposure(const Buffer2D<FloatColor>& hdr_buffer, float key_value = 0.18f) 
 {
+    float sum_of_logs = 0.0f;
+    int width = hdr_buffer.get_width();
+    int height = hdr_buffer.get_height();
+    int total_pixels = width * height;
+    
+    const float epsilon = 0.0001f; 
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            FloatColor color = *(hdr_buffer.at(x, y));
+            float luminance = color.strength();
+            sum_of_logs += std::log(epsilon + luminance);
+        }
+    }
+
+    float log_average_luminance = std::exp(sum_of_logs / (float)total_pixels);
+
+    if (log_average_luminance < 0.0001f) {
+        return 1.0f; 
+    }
+
+    return key_value / log_average_luminance;
+}
+
+void ImageWriter::write_tone_mapped_jpg_from_tone_map(const Buffer2D<FloatColor> &buffer, const std::string& path)
+{
+    float optimal_exposure = calculate_auto_exposure(buffer, 0.18f);
     Buffer2D<Fragment> pixel_buffer(buffer.get_width(), buffer.get_height());
     for (ssize_t x = 0; x<buffer.get_width(); x++) {
         for (ssize_t y = 0; y<buffer.get_height(); y++) {
             FloatColor v = *buffer.at(x, y);
-            v = tone_map_reinhard_luminance(v, exposure);
+            v = tone_map_reinhard_luminance(v, optimal_exposure);
             FloatColor final_color(
                 glm::pow(v.red, 1.0f / 2.2f),
                 glm::pow(v.green, 1.0f / 2.2f),

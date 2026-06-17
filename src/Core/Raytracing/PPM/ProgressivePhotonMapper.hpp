@@ -113,9 +113,22 @@ private:
 
     float random_v1()
     {
-        static thread_local std::mt19937_64 generator(std::random_device{}());
+        static std::atomic<uint64_t> thread_seed_counter{0};
+        static thread_local std::mt19937_64 generator([]() {
+            std::random_device rd;
+            auto time_seed = static_cast<uint64_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+            auto counter_seed = thread_seed_counter.fetch_add(1);
+            auto hardware_seed = static_cast<uint64_t>(rd());
+            uint64_t final_seed = hardware_seed ^ (counter_seed << 32) ^ time_seed;
+            return std::mt19937_64(final_seed);
+        }());
+
         static thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);        
         return distribution(generator);
+
+        // static thread_local std::mt19937_64 generator(std::random_device{}());
+        // static thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);        
+        // return distribution(generator);
 
         // return ((float)rand() / (float)RAND_MAX);
     }
@@ -160,7 +173,7 @@ private:
         if (has_diffuse || is_rough) {
             HitPoint clone = source;
             clone.material = &hit_data.mesh->pbr_material;
-            clone.normal = hit_data.interpolated_normal;
+            clone.normal = glm::dot(hit_data.interpolated_normal, -ray.direction) > 0.0 ? hit_data.interpolated_normal : -hit_data.interpolated_normal;
             clone.direction = ray.direction;
             clone.position = hit_data.interpolated_point;
             
@@ -342,6 +355,7 @@ public:
                         hitpoint.pixel_x = start_x + dx;
                         hitpoint.pixel_y = start_y + dy;
                         hitpoint.radius_squared = this->radius * this->radius;
+                        hitpoint.photon_count = 0.0f;
                         this->ray_trace(ray, hitpoint, local_buffer);
                     } 
                 }
@@ -400,11 +414,12 @@ public:
 
             glm::vec3 outwards_normal = hit_data.interpolated_normal;
             if (glm::dot(outwards_normal, ray.direction) > 0.0f) {
-                outwards_normal -= outwards_normal;
+                outwards_normal = -outwards_normal;
             }
 
             if (choice < p_reflect) {
                 // Reflection
+                float ggx_weight = 1.0f;
                 if (hit_data.mesh->pbr_material.is_rough()) {
                     photon_vector.push_back(Photon{
                         .emission = photon_emission,
@@ -417,10 +432,23 @@ public:
                     if (glm::dot(next_ray.direction, outwards_normal) <= 0.0f) {
                         break; 
                     }
+
+                    // GGX Throughput
+                    glm::vec3 V = view_dir;
+                    glm::vec3 L = next_ray.direction;
+                    glm::vec3 H = glm::normalize(V + L);
+
+                    float n_dot_v = std::max(0.001f, glm::dot(outwards_normal, V));
+                    float n_dot_l = std::max(0.001f, glm::dot(outwards_normal, L));
+                    float n_dot_h = std::max(0.001f, glm::dot(outwards_normal, H));
+                    float v_dot_h = std::max(0.001f, glm::dot(V, H));
+
+                    float G = Math::ggx_geometry_smith(outwards_normal, V, L, hit_data.mesh->pbr_material.roughness);
+                    ggx_weight = (G * v_dot_h) / (n_dot_v * n_dot_h);
                 } else {
                     next_ray.direction = specular_data.reflection;
                 }
-                photon_emission = photon_emission * specular_data.fresnel * (1.0f / p_reflect);
+                photon_emission = photon_emission * ggx_weight * specular_data.fresnel * (1.0f / p_reflect);
             } else if (choice < p_reflect + p_transmit) {
                 // We transmit to the other side
                 next_ray.direction = specular_data.refraction;
@@ -463,16 +491,16 @@ public:
     void update_pixel_data(ssize_t start_from, ssize_t end_at)
     {
         Buffer2D<FloatColor> temp_buffer(this->result.get_width(), this->result.get_height());
+        std::vector<Photon> gathered_photons;
 
         // no multithreading this time
         for (ssize_t i = start_from; i < end_at; i++) {
             auto& hitpoint = hitpoint_buffer[i];
-
-            const std::vector<Photon>& gathered_photons = this->photon_map.search(hitpoint.position, this->photon_gather_limit, hitpoint.radius_squared);
-            float next_radius = calculate_next_radius_squared(hitpoint.radius_squared, hitpoint.photon_count, gathered_photons.size());
+            this->photon_map.search(hitpoint.position, hitpoint.radius_squared, gathered_photons);
+            float next_radius_squared = calculate_next_radius_squared(hitpoint.radius_squared, hitpoint.photon_count, gathered_photons.size());
             FloatColor old_flux = hitpoint.accumulated_flux;
 
-            // Calculate new flux
+            // Calculate ne
             FloatColor new_flux = FloatColor(0.0f, 0.0f, 0.0f);
             for (auto& photon : gathered_photons) {
                 // Check if this photon even is interesting to us
@@ -495,11 +523,11 @@ public:
                 FloatColor F_microfacet = Math::schlick_color(r0, v_dot_h);
                 
                 FloatColor brdf_glossy = FloatColor(0.0f, 0.0f, 0.0f);
-                if (hitpoint.material->is_rough()) {
+                // if (hitpoint.material->is_rough()) {
                     FloatColor numerator = F_microfacet * D * G;
                     float denominator = 4.0f * n_dot_v * n_dot_l;
                     brdf_glossy = numerator * (1.0f / std::max(denominator, 0.001f));
-                }
+                // }
                 
                 // Energy left post fresnel
                 FloatColor energy_left = FloatColor(1.0f) - F_microfacet;
@@ -514,13 +542,13 @@ public:
             }
 
             FloatColor final_flux = this->calculate_new_flux(old_flux, new_flux, hitpoint.photon_count, gathered_photons.size());
-            FloatColor final_radiance = final_flux * (1.0f / (glm::pi<float>() * hitpoint.radius_squared * this->total_photons_emitted_so_far));
+            FloatColor final_radiance = final_flux * (1.0f / (glm::pi<float>() * next_radius_squared * this->total_photons_emitted_so_far));
 
             // Finally we can write color
 
             FloatColor old_value = *(temp_buffer.at(hitpoint.pixel_x, hitpoint.pixel_y));
             
-            // Standard
+            // // Standard
             temp_buffer.write(hitpoint.pixel_x, hitpoint.pixel_y, old_value + final_radiance * hitpoint.pixel_weight);
             this->result.write(hitpoint.pixel_x, hitpoint.pixel_y, old_value + final_radiance * hitpoint.pixel_weight);
             
@@ -532,7 +560,7 @@ public:
 
             hitpoint.accumulated_flux = final_flux;
             hitpoint.photon_count += this->alpha * (float)gathered_photons.size();
-            hitpoint.radius_squared = next_radius;
+            hitpoint.radius_squared = next_radius_squared;
         }
     }
 
@@ -629,9 +657,9 @@ public:
         }
 
         // Rebuild photon map
-        this->photon_map = PhotonMap(photon_vector);
+        this->photon_map = PhotonMap(PhotonMap(std::move(photon_vector)));
 
-        log_info("[PPM]: Finished building new photon map -  ", photon_vector.size(), " total photons.");
+        log_info("[PPM]: Finished building new photon map -  ", this->photon_map.get_size(), " total photons.");
         total_photons_emitted_so_far += photons_per_pass;
 
         
@@ -679,6 +707,8 @@ public:
                     FloatColor old_value = *this->result.at(x, y);
                     this->result.write(x, y, value + old_value);
                 }
+
+                this->direct_emission_buffer.write(x, y, FloatColor(0, 0, 0));
             }
         }
 

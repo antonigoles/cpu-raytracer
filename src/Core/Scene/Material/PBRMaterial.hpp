@@ -32,6 +32,10 @@ public:
         return roughness >= 0.001f;
     }
 
+    bool is_visibly_rough() const {
+        return roughness >= 0.3f;
+    }
+
     aiShadingMode assimp_shading_mode;
 
     void print()

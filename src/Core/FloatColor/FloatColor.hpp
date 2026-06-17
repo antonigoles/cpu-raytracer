@@ -42,4 +42,11 @@ public:
     {
         return glm::max(glm::max(red, green), blue);
     };
+
+    void clamp(float min, float max)
+    {
+        red = glm::clamp(red, min, max);
+        green = glm::clamp(green, min, max);
+        blue = glm::clamp(blue, min, max);
+    }
 };

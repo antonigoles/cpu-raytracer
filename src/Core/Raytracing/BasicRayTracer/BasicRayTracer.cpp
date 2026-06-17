@@ -221,7 +221,7 @@ void BasicRayTracer::build_caustic_photon_map(
     }
 
     log_info("Caustic map size: ", photon_vector.size());
-    this->caustic_photon_map = PhotonMap(photon_vector);
+    this->caustic_photon_map = PhotonMap(std::move(photon_vector));
 }
 
 FloatColor BasicRayTracer::cast_ray(
@@ -237,7 +237,7 @@ FloatColor BasicRayTracer::cast_ray(
 
     float previous_pdf_brdf = 1.0f; 
 
-    std::priority_queue<std::pair<float, uint64_t>> driver_pq;
+    // std::priority_queue<std::pair<float, uint64_t>> driver_pq;
 
     while (depth_left --> 0) {
         RayHit ray_hit = rt_engine->intersect(ray);
@@ -420,7 +420,8 @@ FloatColor BasicRayTracer::cast_ray(
 
             if ((start_depth - depth_left) <= 1 && diffuse_margin > 0.01f) {
                 uint32_t N_photons = 100; // zhardcodeowane póki co
-                std::vector<Photon> found_photons = this->caustic_photon_map.search(interpolated_point, N_photons, 0.5f);
+                std::vector<Photon> found_photons;
+                this->caustic_photon_map.search(interpolated_point, 0.5f, found_photons);
                 if (found_photons.size() >= 10) { 
                     float max_dist2 = 0.0f;
                     for (const auto& p : found_photons) {

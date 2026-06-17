@@ -1,4 +1,5 @@
 #include "Core/Raytracing/PPM/ProgressivePhotonMapper.hpp"
+#include "Core/Raytracing/PPM/StochasticProgressivePhotonMapper.hpp"
 #include <iostream>
 #include <stdint.h>
 #include <Infrastructure/Logger/Logger.hpp>
@@ -10,6 +11,7 @@
 #include <Infrastructure/ImageWriter/ImageWriter.hpp>
 #include <chrono>
 #include <Core/Postprocessing/SimpleDenoisser.hpp>
+#include <string>
 #include <sys/types.h>
 
 struct CameraConfig {
@@ -20,6 +22,18 @@ struct CameraConfig {
     float focal_length = 1.0f;
 };
 
+struct StochasticPhotomMapperConfig
+{
+
+};
+
+struct PPMLiveRenderSettings
+{
+    bool enable = false;
+    std::string path_to_folder = "";
+    int steps_between_saves = 10;
+};
+
 struct PhotomMapperConfig
 {
     int photon_count = 1000000;
@@ -27,7 +41,10 @@ struct PhotomMapperConfig
     float alpha = 0.7f;
     float starting_radius = 0.1f;
     int photon_gather_limit = 1000;
+    PPMLiveRenderSettings live_render;
+    StochasticPhotomMapperConfig stochastic_ppm_config;
 };
+
 
 struct SceneConfig {
     CameraConfig cam;
@@ -39,7 +56,7 @@ struct SceneConfig {
     std::string input_path = "";
     std::string engine = "Embree";
     std::string metrics_path = "metrics.log";
-    std::string illumination_technique = "ppm";
+    std::string illumination_technique = "sppm";
     float ray_normal_bias = 0.0001f;
     bool live_preview = false;
     int sample_per_pixel_sqrt = 4;
@@ -47,11 +64,65 @@ struct SceneConfig {
     int nl_parameter = 1;
     bool write_exr = false;
     int np = 0;
+    float energy_clamping = 5.0f;
     PhotomMapperConfig ppm_config;
 };
 
 std::string v3_to_str(const glm::vec3 v) {
     return std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z);
+}
+
+void run_scene_from_config_with_sppm(const SceneConfig& config, std::shared_ptr<Scene> scene, std::shared_ptr<AbstractRayTracingEngine> rt_engine)
+{
+    auto building_scene_start = std::chrono::high_resolution_clock::now();
+    rt_engine->build_from_scene(scene);
+    auto building_scene_end = std::chrono::high_resolution_clock::now();
+    auto building_scene_duration = (double)std::chrono::duration_cast<std::chrono::milliseconds>(building_scene_end - building_scene_start).count() / 1000.0f;
+
+    auto image_writer = ImageWriter();
+    auto ray_tracer = StochasticProgressivePhotonMapper(
+        rt_engine, 
+        scene, 
+        config.resolution.x, 
+        config.resolution.y, 
+        config.ppm_config.alpha, 
+        config.ppm_config.photon_count, 
+        config.ppm_config.starting_radius,
+        config.ppm_config.photon_gather_limit,
+        config.energy_clamping
+    );
+
+    auto rendering_start = std::chrono::high_resolution_clock::now();
+    ray_tracer.initialize();
+    for (int i = 0; i < config.ppm_config.photon_passes_count; i++) {
+        ray_tracer.run_next_step();
+        if (config.ppm_config.live_render.enable && i % config.ppm_config.live_render.steps_between_saves == 0) {
+            auto ray_traced_buffer = ray_tracer.get_result();
+            image_writer.write_exr_from_floatcolor_buffer(
+                ray_traced_buffer, 
+                config.ppm_config.live_render.path_to_folder + "/step-"  + std::to_string(i+1) + ".exr"
+            );
+        }
+    }
+    auto ray_traced_buffer = ray_tracer.get_result();
+    auto rendering_end = std::chrono::high_resolution_clock::now();
+    auto rendering_duration = (double)std::chrono::duration_cast<std::chrono::milliseconds>(rendering_end - rendering_start).count() / 1000.0f;
+    
+    if (config.write_exr) {
+        image_writer.write_exr_from_floatcolor_buffer(ray_traced_buffer, config.output_file);
+    } else {
+        image_writer.write_tone_mapped_jpg_from_tone_map(ray_traced_buffer, config.output_file);
+    }
+
+    float rays_per_second = (float)rt_engine->get_performance_metric().rays_shot / rendering_duration;
+    
+    log_file(config.metrics_path,
+        "engine: ", config.engine, "\n",
+        "rsa_structure_build_duration: ", building_scene_duration, "\n",
+        "rendering_duration: ", rendering_duration, "\n",
+        "total_rays_shot: ", rt_engine->get_performance_metric().rays_shot, "\n",
+        "rays_per_second: ", rays_per_second
+    );
 }
 
 void run_scene_from_config_with_ppm(const SceneConfig& config, std::shared_ptr<Scene> scene, std::shared_ptr<AbstractRayTracingEngine> rt_engine)
@@ -200,6 +271,8 @@ void run_scene_form_config(const SceneConfig& config)
 
     if (config.illumination_technique == "ppm") {
         run_scene_from_config_with_ppm(config, scene, rt_engine);
+    } else if (config.illumination_technique == "sppm") {
+        run_scene_from_config_with_sppm(config, scene, rt_engine);
     } else {
         run_scene_from_config_with_path_tracer(config, scene, rt_engine);
     }
@@ -236,9 +309,11 @@ int boot_from_params(int argc, char **argv)
             ("o", po::value<std::string>(&config.output_file), "Nazwa pliku wynikowego")
             ("in", po::value<std::string>(&config.input_path), "Sciezka do pliku sceny obj")
             ("engine", po::value<std::string>(&config.engine)->default_value("Embree"), "Silnik RSA, dostępne: Embree, HavranKDTree")
+            ("illumination_technique", po::value<std::string>(&config.illumination_technique)->default_value("sppm"), "Dostepen: pt, ppm, sppm")
             ("metrics_path", po::value<std::string>(&config.metrics_path), "Sciezka gdzie maja zostac zapisane metrics")
             ("ray_normal_bias", po::value<float>(&config.ray_normal_bias), 
             "Współczynnik przesuniecia promienia wzdłóż wektora normalnego odbijanego trójąta (do naprawiania shadow acnee)")
+            ("energy_clamping", po::value<float>(&config.energy_clamping), "Energy clamping (max energy)")
 
             // PPM config
             ("ppm_pc", po::value<int>(&config.ppm_config.photon_count), "[ppm] photon count")
@@ -246,6 +321,10 @@ int boot_from_params(int argc, char **argv)
             ("ppm_a", po::value<float>(&config.ppm_config.alpha), "[ppm] alpha")
             ("ppm_sr", po::value<float>(&config.ppm_config.starting_radius), "[ppm] starting radius")
             ("ppm_pgl", po::value<int>(&config.ppm_config.photon_gather_limit), "[ppm] photon gather limit")
+
+            ("ppm_lr", po::value<bool>(&config.ppm_config.live_render.enable), "[ppm] enable live render")
+            ("ppm_lr_path", po::value<std::string>(&config.ppm_config.live_render.path_to_folder), "[ppm] live render folder")
+            ("ppm_lr_steps", po::value<int>(&config.ppm_config.live_render.steps_between_saves), "[ppm] steps")
 
             ("res", po::value<std::vector<int>>()->multitoken(), "Rozdzielczość (dimx dimy)")
             

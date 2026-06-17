@@ -43,12 +43,111 @@ cmake --build .
 #     --metrics_path "../demos/cornell_water-np$np-nl$nl-ppm.log"
 # iv ../demos/cornell_water_render-np$np-nl$nl-ppm.exr &> /dev/null
 
-ppm_pc=500000
-ppm_ppc=1
+ppm_pc=350000
+ppm_ppc=4096
 ppm_a=0.7
-ppm_sr=0.4
+ppm_sr=0.1
 ppm_pgl=1000
-suffix=$ppm_pc-$ppm_ppc-$ppm_a-$ppm_sr-$ppm_pgl
+method="sppm"
+energy_clamping=10.0
+suffix=$ppm_pc-$ppm_ppc-$ppm_a-$ppm_sr-$ppm_pgl-$method-$energy_clamping-mis
+
+# ./RayTracer \
+#     --in "../assets/TestRoom2/Monkey.glb" \
+#     --vp 0.0 0.8 2.4 \
+#     --vd 0.0 0.0 -1.0 \
+#     --up 0.0 1.0 0.0 \
+#     --focal_length 1.0 \
+#     --fovy 54.4 \
+#     --res 1280 960 \
+#     --np $np \
+#     --nl $nl \
+#     --exr true \
+#     --jitter_scale 0 \
+#     --engine "Embree" \
+#     --o "../demos/monkey_render-$suffix.exr" \
+#     --metrics_path "../demos/monkey_rgb-$suffix.log" \
+#     --illumination_technique $method \
+#     --ppm_pc $ppm_pc \
+#     --ppm_ppc $ppm_ppc \
+#     --ppm_a $ppm_a \
+#     --ppm_sr $ppm_sr \
+#     --ppm_pgl $ppm_pgl \
+#     --energy_clamping $energy_clamping
+# iv ../demos/monkey_render-$suffix.exr &> /dev/null
+
+# ./RayTracer \
+#     --in "../assets/TestRoom/testroom-3.glb" \
+#     --vp 0.0 0.8 2.4 \
+#     --vd 0.0 0.0 -1.0 \
+#     --up 0.0 1.0 0.0 \
+#     --focal_length 1.0 \
+#     --fovy 54.4 \
+#     --res 1280 960 \
+#     --np $np \
+#     --nl $nl \
+#     --exr true \
+#     --jitter_scale 0 \
+#     --engine "Embree" \
+#     --o "../demos/testroom_3_render-$suffix.exr" \
+#     --metrics_path "../demos/testroom_3-$suffix.log" \
+#     --illumination_technique $method \
+#     --ppm_pc $ppm_pc \
+#     --ppm_ppc $ppm_ppc \
+#     --ppm_a $ppm_a \
+#     --ppm_sr $ppm_sr \
+#     --ppm_pgl $ppm_pgl \
+#     --energy_clamping $energy_clamping
+# iv ../demos/testroom_3_render-$suffix.exr &> /dev/null
+
+# ./RayTracer \
+#     --in "../assets/TestRoom2/Monkey-rgb.glb" \
+#     --vp 0.0 0.8 2.4 \
+#     --vd 0.0 0.0 -1.0 \
+#     --up 0.0 1.0 0.0 \
+#     --focal_length 1.0 \
+#     --fovy 54.4 \
+#     --res 1280 960 \
+#     --np $np \
+#     --nl $nl \
+#     --exr true \
+#     --jitter_scale 0 \
+#     --engine "Embree" \
+#     --o "../demos/monkey_rgb_render-$suffix.exr" \
+#     --metrics_path "../demos/monkey_rgb-$suffix.log" \
+#     --illumination_technique $method \
+#     --ppm_pc $ppm_pc \
+#     --ppm_ppc $ppm_ppc \
+#     --ppm_a $ppm_a \
+#     --ppm_sr $ppm_sr \
+#     --ppm_pgl $ppm_pgl \
+#     --energy_clamping $energy_clamping 
+# iv ../demos/monkey_rgb_render-$suffix.exr &> /dev/null
+
+./RayTracer \
+    --in "../assets/CornellBoxHR/CornellBox-glass.glb" \
+    --vp 0.0 0.8 2.4 \
+    --vd 0.0 0.0 -1.0 \
+    --up 0.0 1.0 0.0 \
+    --focal_length 1.0 \
+    --fovy 54.4 \
+    --res 1280 960 \
+    --np $np \
+    --nl $nl \
+    --exr true \
+    --jitter_scale 0 \
+    --engine "Embree" \
+    --o "../demos/cornell_glass_render-$suffix.exr" \
+    --metrics_path "../demos/cornell_glass-$suffix.log" \
+    --illumination_technique $method \
+    --ppm_pc $ppm_pc \
+    --ppm_ppc $ppm_ppc \
+    --ppm_a $ppm_a \
+    --ppm_sr $ppm_sr \
+    --ppm_pgl $ppm_pgl \
+    --energy_clamping $energy_clamping
+iv ../demos/cornell_glass_render-$suffix.exr &> /dev/null
+
 
 # ./RayTracer \
 #     --in "../assets/CornellBoxHR/CornellBox.glb" \
@@ -74,29 +173,29 @@ suffix=$ppm_pc-$ppm_ppc-$ppm_a-$ppm_sr-$ppm_pgl
 #     --ppm_pgl $ppm_pgl
 # iv ../demos/cornellbox_render-$suffix.exr &> /dev/null
 
-./RayTracer \
-    --in "../assets/CornellBoxHR/CornellBox-glass.glb" \
-    --vp 0.0 0.8 2.4 \
-    --vd 0.0 0.0 -1.0 \
-    --up 0.0 1.0 0.0 \
-    --focal_length 1.0 \
-    --fovy 54.4 \
-    --res 1280 960 \
-    --r 32 \
-    --np $np \
-    --nl $nl \
-    --exr true \
-    --jitter_scale 0 \
-    --engine "Embree" \
-    --ray_normal_bias 0.01 \
-    --o "../demos/cornellbox_glass_render-$suffix.exr" \
-    --metrics_path "../demos/cornellbox_glass-$suffix.log" \
-    --ppm_pc $ppm_pc \
-    --ppm_ppc $ppm_ppc \
-    --ppm_a $ppm_a \
-    --ppm_sr $ppm_sr \
-    --ppm_pgl $ppm_pgl
-iv ../demos/cornellbox_glass_render-$suffix.exr &> /dev/null
+# ./RayTracer \
+#     --in "../assets/CornellBoxHR/CornellBox-glass.glb" \
+#     --vp 0.0 0.8 2.4 \
+#     --vd 0.0 0.0 -1.0 \
+#     --up 0.0 1.0 0.0 \
+#     --focal_length 1.0 \
+#     --fovy 54.4 \
+#     --res 1280 960 \
+#     --r 32 \
+#     --np $np \
+#     --nl $nl \
+#     --exr true \
+#     --jitter_scale 0 \
+#     --engine "Embree" \
+#     --ray_normal_bias 0.01 \
+#     --o "../demos/cornellbox_glass_render-$suffix.exr" \
+#     --metrics_path "../demos/cornellbox_glass-$suffix.log" \
+#     --ppm_pc $ppm_pc \
+#     --ppm_ppc $ppm_ppc \
+#     --ppm_a $ppm_a \
+#     --ppm_sr $ppm_sr \
+#     --ppm_pgl $ppm_pgl
+# iv ../demos/cornellbox_glass_render-$suffix.exr &> /dev/null
 
 # ./RayTracer \
 #     --in "../assets/TestRoom/testroom.glb" \
